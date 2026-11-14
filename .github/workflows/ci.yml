@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pipeline:
+    name: Pipeline (lint, tipos y tests)
+    runs-on: ubuntu-latest
+    # Postgres para los tests de publicación; el resto corre con Spark en modo local.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: airbnb
+          POSTGRES_PASSWORD: airbnb_ci
+          POSTGRES_DB: airbnb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U airbnb -d airbnb"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      SERVING_DATABASE_URL: postgresql://airbnb:airbnb_ci@localhost:5432/airbnb
+      DASHBOARD_DB_PASSWORD: dashboard_ci
+    steps:
+      - uses: actions/checkout@v7
+
+      # Las mismas versiones que la imagen de Docker del pipeline: JDK 21 y Python 3.10.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -e ".[spark,dev]"
+
+      - name: Lint
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+
+      - name: Tipos
+        run: mypy
+
+      - name: Tests
+        run: python -m pytest
+
+  dashboard:
+    name: Dashboard (lint, tipos y build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    # El build pre-renderiza las páginas leyendo los marts: se le da una base con el esquema y sin datos.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: airbnb
+          POSTGRES_PASSWORD: airbnb_ci
+          POSTGRES_DB: airbnb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U airbnb -d airbnb"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://airbnb:airbnb_ci@localhost:5432/airbnb
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: dashboard/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: dashboard/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Crear el esquema de los marts
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../src/airbnb_lake/serving/schema.sql
+
+      - name: Build
+        run: pnpm build
