@@ -1,0 +1,185 @@
+# Stack local: HDFS (namenode + datanode), Spark standalone (master + workers), driver del pipeline y una
+# base Postgres que replica el esquema de Neon. Los puertos se publican solo en 127.0.0.1.
+name: airbnb-lake
+
+x-hadoop: &hadoop
+  image: apache/hadoop:3.5.0
+  restart: unless-stopped
+  environment: &hadoop-env
+    CORE-SITE.XML_fs.defaultFS: hdfs://namenode:8020
+    HDFS-SITE.XML_dfs.replication: "1"
+    HDFS-SITE.XML_dfs.namenode.name.dir: /data/hdfs/name
+    HDFS-SITE.XML_dfs.datanode.data.dir: /data/hdfs/data
+    HDFS-SITE.XML_dfs.namenode.rpc-bind-host: 0.0.0.0
+    HDFS-SITE.XML_dfs.namenode.http-bind-host: 0.0.0.0
+    HADOOP_HEAPSIZE_MAX: 512m
+
+x-spark: &spark
+  image: airbnb-lake/spark:4.2.1
+  build:
+    context: .
+    dockerfile: docker/spark/Dockerfile
+  restart: unless-stopped
+
+services:
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    # El volumen nace propiedad de root: se entrega al usuario hadoop y se formatea solo la primera vez.
+    command:
+      - bash
+      - -c
+      - |
+        sudo mkdir -p /data/hdfs/name && sudo chown -R hadoop:users /data/hdfs
+        if [ ! -d /data/hdfs/name/current ]; then
+          hdfs namenode -format -force -nonInteractive
+        fi
+        exec hdfs namenode
+    volumes:
+      - namenode-data:/data/hdfs/name
+    ports:
+      - "127.0.0.1:${HDFS_UI_PORT:-9870}:9870"
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9870/ > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  datanode:
+    <<: *hadoop
+    hostname: datanode
+    command:
+      - bash
+      - -c
+      - |
+        sudo mkdir -p /data/hdfs/data && sudo chown -R hadoop:users /data/hdfs
+        exec hdfs datanode
+    volumes:
+      - datanode-data:/data/hdfs/data
+    depends_on:
+      namenode:
+        condition: service_healthy
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9864/ > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Tarea de un solo uso: espera a que HDFS salga de safe mode y crea /lake para el usuario spark.
+  hdfs-init:
+    <<: *hadoop
+    restart: "no"
+    command:
+      - bash
+      - -c
+      - |
+        hdfs dfsadmin -safemode wait
+        hdfs dfs -mkdir -p /lake /tmp
+        hdfs dfs -chown -R spark:spark /lake
+        hdfs dfs -chmod 1777 /tmp
+    depends_on:
+      namenode:
+        condition: service_healthy
+      datanode:
+        condition: service_healthy
+
+  spark-master:
+    <<: *spark
+    hostname: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master"]
+    ports:
+      - "127.0.0.1:${SPARK_MASTER_UI_PORT:-18080}:8080"
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  spark-worker:
+    <<: *spark
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --cores
+      - "${SPARK_WORKER_CORES:-5}"
+      - --memory
+      - "${SPARK_WORKER_MEMORY:-3g}"
+    environment:
+      # Limpia los directorios de aplicaciones terminadas para no llenar el disco del contenedor.
+      SPARK_WORKER_OPTS: "-Dspark.worker.cleanup.enabled=true -Dspark.worker.cleanup.appDataTtl=86400"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    deploy:
+      replicas: ${SPARK_WORKER_REPLICAS:-2}
+    mem_limit: 4g
+
+  # Driver de larga vida: las etapas se lanzan con `docker compose exec pipeline python -m airbnb_lake <etapa>`.
+  # No se le fija un nombre de host: el driver se anuncia con el identificador de su contenedor, que es
+  # único y que Docker resuelve dentro de la red. Con un nombre fijo, un segundo contenedor del mismo
+  # servicio (`docker compose run`) lo compartiría y los ejecutores podrían conectarse al equivocado.
+  pipeline:
+    <<: *spark
+    command: ["sleep", "infinity"]
+    environment:
+      SPARK_CONF_DIR: /opt/airbnb/conf/spark
+      PYSPARK_SUBMIT_ARGS: >-
+        --master spark://spark-master:7077
+        --driver-memory ${SPARK_DRIVER_MEMORY:-2g}
+        --conf spark.executor.memory=${SPARK_EXECUTOR_MEMORY:-2500m}
+        pyspark-shell
+      AIRBNB_CONF_DIR: /opt/airbnb/conf
+      AIRBNB_LAKE_ROOT: hdfs://namenode:8020/lake
+      AIRBNB_LANDING_DIR: /var/lib/airbnb/landing
+      SERVING_DATABASE_URL: ${SERVING_DATABASE_URL:-postgresql://airbnb:${SERVING_DB_PASSWORD:-airbnb_local}@serving-db:5432/airbnb}
+      DASHBOARD_DB_PASSWORD: ${DASHBOARD_DB_PASSWORD:-dashboard_local}
+      DASHBOARD_REVALIDATE_URL: ${DASHBOARD_REVALIDATE_URL:-}
+      DASHBOARD_REVALIDATE_SECRET: ${DASHBOARD_REVALIDATE_SECRET:-}
+    volumes:
+      # El código se monta para iterar sin reconstruir la imagen.
+      - ./src:/opt/airbnb/src:ro
+      - ./conf:/opt/airbnb/conf:ro
+      - ./tests:/opt/airbnb/tests:ro
+      - ./pyproject.toml:/opt/airbnb/pyproject.toml:ro
+      - landing:/var/lib/airbnb/landing
+    ports:
+      - "127.0.0.1:${SPARK_DRIVER_UI_PORT:-4040}:4040"
+    depends_on:
+      hdfs-init:
+        condition: service_completed_successfully
+      spark-master:
+        condition: service_healthy
+      serving-db:
+        condition: service_healthy
+    mem_limit: 3g
+
+  serving-db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: airbnb
+      POSTGRES_USER: airbnb
+      POSTGRES_PASSWORD: ${SERVING_DB_PASSWORD:-airbnb_local}
+    volumes:
+      - serving-data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${SERVING_DB_PORT:-5440}:5432"
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airbnb -d airbnb"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  namenode-data:
+  datanode-data:
+  serving-data:
+  landing:

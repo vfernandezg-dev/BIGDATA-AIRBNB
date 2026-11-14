@@ -1,0 +1,37 @@
+# Tipos de cambio de referencia para normalizar precios a USD (unidades de moneda local por 1 USD).
+# Fuente: https://open.er-api.com/v6/latest/USD, consultada el 2026-11-14.
+# Es una tabla fija a propósito: una corrida repetida produce los mismos precios en USD. Actualízala al
+# incorporar un snapshot nuevo si quieres reflejar el tipo de cambio de esa fecha.
+
+as_of: 2026-11-14
+units_per_usd:
+  USD: 1.0
+  ARS: 1547.0336
+  AUD: 1.475083
+  BRL: 5.648277
+  CAD: 1.426026
+  CHF: 0.838606
+  CLP: 992.125487
+  CNY: 6.684938
+  COP: 3286.103569
+  CZK: 22.089471
+  DKK: 6.764725
+  EUR: 0.905954
+  GBP: 0.756419
+  HKD: 7.846025
+  HUF: 330.574421
+  ILS: 3.207553
+  JPY: 159.799454
+  KRW: 1336.179911
+  MXN: 18.561557
+  NOK: 9.566938
+  NZD: 1.809216
+  PEN: 3.403819
+  PLN: 3.989114
+  SEK: 10.06553
+  SGD: 1.287798
+  THB: 33.882849
+  TRY: 50.369257
+  TWD: 32.913996
+  UYU: 40.702627
+  ZAR: 16.898089

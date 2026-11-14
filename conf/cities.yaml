@@ -1,0 +1,77 @@
+# Ciudades que procesa el pipeline. `source_path` es la ruta de la ciudad en data.insideairbnb.com
+# (país/región/ciudad, tal cual aparece en https://insideairbnb.com/get-the-data/).
+# `currency` es la moneda local en la que Inside Airbnb publica los precios.
+# Para añadir una ciudad basta con una entrada nueva: el resto del pipeline no cambia.
+
+cities:
+  - slug: santiago
+    name: Santiago
+    country: Chile
+    source_path: chile/rm/santiago
+    currency: CLP
+
+  - slug: mexico-city
+    name: Ciudad de México
+    country: México
+    source_path: mexico/df/mexico-city
+    currency: MXN
+
+  - slug: buenos-aires
+    name: Buenos Aires
+    country: Argentina
+    source_path: argentina/ciudad-autónoma-de-buenos-aires/buenos-aires
+    currency: ARS
+
+  - slug: rio-de-janeiro
+    name: Río de Janeiro
+    country: Brasil
+    source_path: brazil/rj/rio-de-janeiro
+    currency: BRL
+
+  - slug: sao-paulo
+    name: São Paulo
+    country: Brasil
+    source_path: brazil/sp/são-paulo
+    currency: BRL
+
+  - slug: bogota
+    name: Bogotá
+    country: Colombia
+    source_path: colombia/dc/bogotá
+    currency: COP
+
+  - slug: madrid
+    name: Madrid
+    country: España
+    source_path: spain/comunidad-de-madrid/madrid
+    currency: EUR
+
+  - slug: barcelona
+    name: Barcelona
+    country: España
+    source_path: spain/catalonia/barcelona
+    currency: EUR
+
+  - slug: new-york-city
+    name: Nueva York
+    country: Estados Unidos
+    source_path: united-states/ny/new-york-city
+    currency: USD
+
+  - slug: paris
+    name: París
+    country: Francia
+    source_path: france/ile-de-france/paris
+    currency: EUR
+
+  - slug: london
+    name: Londres
+    country: Reino Unido
+    source_path: united-kingdom/england/london
+    currency: GBP
+
+  - slug: lisbon
+    name: Lisboa
+    country: Portugal
+    source_path: portugal/lisbon/lisbon
+    currency: EUR
