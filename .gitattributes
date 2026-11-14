@@ -1,0 +1,6 @@
+# Finales de línea LF en todo el repositorio: los scripts y configuraciones se ejecutan en contenedores Linux.
+* text=auto eol=lf
+
+*.png binary
+*.parquet binary
+*.gz binary
