@@ -8,7 +8,7 @@
 
 Pipeline batch que descarga los datos abiertos de [Inside Airbnb](https://insideairbnb.com/get-the-data/),
 los procesa con **Apache Spark sobre HDFS** en capas Bronze, Silver y Gold, entrena un modelo de precios y
-publica los resultados en un **dashboard web**.
+publica los resultados en un **dashboard web**: <https://bigdata-airbnb.vfernandezg.dev>
 
 | | |
 |---|---|
@@ -206,7 +206,8 @@ ninguna consulta. Al terminar de publicar, el pipeline llama a `POST /api/revali
 regeneran en la siguiente visita. El sitio se conecta con un rol de solo lectura.
 
 `pnpm e2e` ejecuta las pruebas de humo con Playwright en escritorio, modo oscuro y móvil (la primera vez,
-`pnpm exec playwright install chromium`).
+`pnpm exec playwright install chromium`). Con `E2E_BASE_URL` se ejecutan contra un sitio ya desplegado:
+`E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e`.
 
 ## Publicar en producción
 
