@@ -226,8 +226,8 @@ E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e
 ```
 
 El firewall de producción admite 1.200 peticiones por minuto y por IP, y la batería completa hace unas
-1.100. Por eso, contra un sitio desplegado las pruebas usan solo dos procesos en paralelo: tardan un par de
-minutos y se quedan lejos del límite.
+1.100. Por eso, contra un sitio desplegado las pruebas van en un solo proceso: tardan unos dos minutos y
+hacen la mitad de peticiones por minuto de las que admite el límite.
 
 ## Publicar en producción
 

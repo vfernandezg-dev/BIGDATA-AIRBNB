@@ -11,8 +11,8 @@ export default defineConfig({
   outputDir: "./e2e/.results",
   fullyParallel: true,
   // La batería completa hace unas 1.100 peticiones. En local dura medio minuto; contra un sitio desplegado
-  // se reparte en un par de minutos para no acercarse al límite de peticiones por IP de su firewall.
-  workers: externalBaseUrl ? 2 : undefined,
+  // va en un solo proceso y se reparte en unos dos minutos (la mitad del límite por IP de su firewall).
+  workers: externalBaseUrl ? 1 : undefined,
   reporter: [["list"]],
   use: { baseURL: externalBaseUrl ?? `http://localhost:${PORT}` },
   projects: [
