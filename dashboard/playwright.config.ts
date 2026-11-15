@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Pruebas de humo. Por defecto arrancan el sitio construido (`pnpm build`) con los marts de la base local;
 // con E2E_BASE_URL se ejecutan contra un sitio ya desplegado, por ejemplo el de producción:
-//   E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e
+//   E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e --project=escritorio
+// (un perfil cada vez: los tres en paralelo superan el límite de peticiones por IP del firewall).
 const PORT = 3100;
 const externalBaseUrl = process.env.E2E_BASE_URL;
 

@@ -21,7 +21,7 @@ pnpm dev          # http://localhost:3000, con recarga en caliente
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | Genera los tipos de las rutas y ejecuta `tsc` |
 | `pnpm e2e` | Pruebas de humo con Playwright (requiere `pnpm build` y, la primera vez, `pnpm exec playwright install chromium`) |
-| `E2E_BASE_URL=<url> pnpm e2e` | Las mismas pruebas contra un sitio ya desplegado, sin arrancar nada en local |
+| `E2E_BASE_URL=<url> pnpm e2e --project=escritorio` | Las mismas pruebas contra un sitio ya desplegado. Un perfil cada vez: la batería completa supera el límite de peticiones por IP del firewall de producción |
 
 ## Cómo está hecho
 

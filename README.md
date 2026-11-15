@@ -211,8 +211,13 @@ ninguna consulta. Al terminar de publicar, el pipeline llama a `POST /api/revali
 regeneran en la siguiente visita. El sitio se conecta con un rol de solo lectura.
 
 `pnpm e2e` ejecuta las pruebas de humo con Playwright en escritorio, modo oscuro y móvil (la primera vez,
-`pnpm exec playwright install chromium`). Con `E2E_BASE_URL` se ejecutan contra un sitio ya desplegado:
-`E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e`.
+`pnpm exec playwright install chromium`). Con `E2E_BASE_URL` se ejecutan contra un sitio ya desplegado.
+Contra producción conviene lanzar un perfil cada vez: el firewall admite 300 peticiones por minuto y por
+IP, y la batería completa en paralelo lo supera y recibe respuestas 429.
+
+```bash
+E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e --project=escritorio
+```
 
 ## Publicar en producción
 
