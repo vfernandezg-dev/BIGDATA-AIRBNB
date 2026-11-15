@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { formatInt, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 import type { MapCell } from "@/lib/queries";
 import { quantiles } from "@/lib/scale";
 
@@ -33,10 +33,7 @@ const HEAT_COLORS = ["#fde7a3", "#f9b24d", "#eb6834", "#b3261e"];
 // Una celda con pocos anuncios pesa menos: un único alojamiento de lujo no debe encender una zona.
 const LISTINGS_FOR_FULL_WEIGHT = 3;
 
-const MODES: { id: MapMode; label: string }[] = [
-  { id: "heat", label: "Mapa de calor" },
-  { id: "cells", label: "Precio por celda" },
-];
+const MODES: MapMode[] = ["heat", "cells"];
 
 function priceClass(price: number | null, breaks: number[]): number {
   if (price === null) return NO_PRICE_CLASS;
@@ -58,6 +55,8 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
   const [mode, setMode] = useState<MapMode>("heat");
   const modeRef = useRef(mode);
   const [failed, setFailed] = useState(false);
+  const fmt = useFormatters();
+  const messages = useChartMessages().cityMap;
 
   const stats = useMemo(() => {
     const prices = cells.map((cell) => cell[3]).filter((price): price is number => price !== null);
@@ -121,6 +120,7 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
         // Con el desplazamiento de la página no se hace zoom por accidente: hace falta Ctrl o dos dedos.
         cooperativeGestures: true,
         attributionControl: { compact: true },
+        locale: messages.controls,
       });
       mapRef.current = instance;
       instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -185,9 +185,9 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
           // El contenido se construye con nodos de texto: nada del dato se interpreta como HTML.
           const content = document.createElement("div");
           const value = document.createElement("strong");
-          value.textContent = price === null || price === undefined ? "Sin precio" : `${formatUsd(price)} por noche`;
+          value.textContent = price === null || price === undefined ? messages.noPrice : messages.perNight(fmt.usd(price));
           const detail = document.createElement("div");
-          detail.textContent = `${formatInt(listings)} ${listings === 1 ? "anuncio" : "anuncios"} en la celda`;
+          detail.textContent = messages.listingsInCell(listings, fmt.int(listings));
           content.append(value, detail);
           popup.setLngLat(event.lngLat).setDOMContent(content).addTo(instance);
         });
@@ -203,7 +203,7 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [cells, cellDegrees, bounds, stats]);
+  }, [cells, cellDegrees, bounds, stats, fmt, messages]);
 
   // Cambiar de vista solo alterna la visibilidad de dos capas ya cargadas: no se vuelve a crear el mapa.
   useEffect(() => {
@@ -219,10 +219,10 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
     const to = index < stats.breaks.length ? stats.breaks[index] : null;
     const label =
       from === null
-        ? `Menos de ${formatUsd(to)}`
+        ? messages.lessThan(fmt.usd(to))
         : to === null
-          ? `${formatUsd(from)} o más`
-          : `${formatUsd(from)} – ${formatInt(to)}`;
+          ? messages.orMore(fmt.usd(from))
+          : `${fmt.usd(from)} – ${fmt.int(to)}`;
     return { color, label };
   });
 
@@ -230,20 +230,20 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
     <div>
       <div
         role="group"
-        aria-label="Vista del mapa"
+        aria-label={messages.modesLabel}
         className="mb-3 inline-flex rounded-md border border-hairline p-0.5"
       >
         {MODES.map((option) => (
           <button
-            key={option.id}
+            key={option}
             type="button"
-            aria-pressed={mode === option.id}
-            onClick={() => setMode(option.id)}
+            aria-pressed={mode === option}
+            onClick={() => setMode(option)}
             className={`rounded px-3 py-1 text-xs font-medium ${
-              mode === option.id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink"
+              mode === option ? "bg-ink text-surface" : "text-ink-2 hover:text-ink"
             }`}
           >
-            {option.label}
+            {messages[option]}
           </button>
         ))}
       </div>
@@ -251,30 +251,30 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
       <div
         ref={container}
         role="application"
-        aria-label={`Mapa de ${cityName}: precio por noche de los anuncios, agregados en celdas de unos 500 metros`}
+        aria-label={messages.label(cityName)}
         className="h-[460px] w-full overflow-hidden rounded-md border border-hairline text-[#0b0b0b]"
       />
       {failed ? (
         <p className="mt-2 text-xs text-muted">
-          No se pudo cargar el mapa base. Los datos por barrio están en las tablas de esta página.
+          {messages.failed}
         </p>
       ) : null}
 
       {mode === "heat" ? (
         <div
           className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2"
-          aria-label="Escala del mapa de calor"
+          aria-label={messages.heatScaleLabel}
         >
-          <span className="tabular">{formatUsd(stats.median)} (mediana de la ciudad)</span>
+          <span className="tabular">{messages.cityMedian(fmt.usd(stats.median))}</span>
           <span
             aria-hidden
             className="inline-block h-2.5 w-36 rounded-sm ring-1 ring-hairline"
             style={{ background: `linear-gradient(to right, ${HEAT_COLORS.join(", ")})` }}
           />
-          <span className="tabular">{formatUsd(stats.high)} o más</span>
+          <span className="tabular">{messages.orMore(fmt.usd(stats.high))}</span>
         </div>
       ) : (
-        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-label="Escala de precio mediano">
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-label={messages.cellScaleLabel}>
           {cellLegend.map((entry) => (
             <li key={entry.label} className="flex items-center gap-1.5">
               <span
@@ -291,7 +291,7 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
               className="inline-block h-2.5 w-4 rounded-sm ring-1 ring-hairline"
               style={{ background: NO_PRICE_COLOR }}
             />
-            Sin precio publicado
+            {messages.noPublishedPrice}
           </li>
         </ul>
       )}

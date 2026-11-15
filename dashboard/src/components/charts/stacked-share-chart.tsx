@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatPercent } from "@/lib/format";
+import { useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -36,6 +36,7 @@ const SWATCH: Record<string, string> = {
  * La primera categoría imprime su cuota (siempre cabe); el resto se lee en la leyenda y el detalle.
  */
 export function StackedShareChart({ series, rows, label }: StackedShareChartProps) {
+  const fmt = useFormatters();
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -53,7 +54,7 @@ export function StackedShareChart({ series, rows, label }: StackedShareChartProp
               theme,
               row.label,
               series.map((entry, index) => ({
-                value: formatPercent(row.shares[index], 1),
+                value: fmt.percent(row.shares[index], 1),
                 label: entry.name,
                 key: colorOf(entry.color),
               })),
@@ -66,7 +67,7 @@ export function StackedShareChart({ series, rows, label }: StackedShareChartProp
           max: 1,
           ...axis,
           axisLine: { show: false },
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatPercent(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.percent(value) },
         },
         yAxis: {
           type: "category",
@@ -88,14 +89,14 @@ export function StackedShareChart({ series, rows, label }: StackedShareChartProp
           label: {
             show: index === 0,
             position: "insideLeft",
-            formatter: (params: { value: number }) => formatPercent(params.value),
+            formatter: (params: { value: number }) => fmt.percent(params.value),
             color: "#ffffff",
             fontSize: 11,
           },
         })),
       };
     },
-    [series, rows],
+    [series, rows, fmt],
   );
 
   return (

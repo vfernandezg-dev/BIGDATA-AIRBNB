@@ -28,6 +28,10 @@ const securityHeaders = [
     : []),
 ];
 
+// Secciones que existían antes de que el sitio tuviera dos idiomas: sus direcciones eran las de español,
+// sin prefijo. Se conservan como redirecciones permanentes para no romper los enlaces ya publicados.
+const SPANISH_SECTIONS = ["modelo", "metodologia", "licencias", "terminos"];
+
 const nextConfig: NextConfig = {
   // Las consultas a la base de datos se cachean con `use cache` y las páginas se pre-renderizan: una visita
   // normal no ejecuta ninguna consulta. La caché se invalida al publicar datos nuevos (/api/revalidate).
@@ -44,6 +48,40 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  /**
+   * El idioma va en la dirección (`/es/...`, `/en/...`) y cada uno tiene su árbol de rutas en `src/app`.
+   * Estas reglas se resuelven en el enrutador, antes de llegar a ninguna página: no ejecutan código del
+   * sitio ni necesitan cookies.
+   */
+  async redirects() {
+    return [
+      // La raíz elige idioma según el navegador: español si es su primera preferencia, inglés si pide
+      // cualquier otro, y español (el idioma de referencia) si no dice nada, como hacen los buscadores.
+      {
+        source: "/",
+        has: [{ type: "header", key: "accept-language", value: "es.*" }],
+        destination: "/es",
+        permanent: false,
+      },
+      { source: "/", has: [{ type: "header", key: "accept-language" }], destination: "/en", permanent: false },
+      { source: "/", destination: "/es", permanent: false },
+
+      { source: "/ciudad/:slug", destination: "/es/ciudad/:slug", permanent: true },
+      ...SPANISH_SECTIONS.map((section) => ({
+        source: `/${section}`,
+        destination: `/es/${section}`,
+        permanent: true,
+      })),
+
+      // Cualquier otra dirección sin idioma pasa a español, donde se muestra la página "no encontrada" del
+      // sitio. Se excluyen la API, los archivos internos de Next y todo lo que tenga extensión.
+      {
+        source: "/:path((?!es(?:/|$)|en(?:/|$)|api(?:/|$)|_next(?:/|$))[^.]+)",
+        destination: "/es/:path",
+        permanent: false,
+      },
+    ];
   },
 };
 

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { formatInt, formatPercent, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters, useLocale } from "@/i18n/client";
+import { pathFor } from "@/i18n/routes";
 
 import { baseOption, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -20,17 +21,16 @@ export type WorldMapCity = {
 };
 
 type Region = {
-  id: string;
-  label: string;
+  id: "world" | "americas" | "europe";
   /** Esquinas del encuadre: [longitud oeste, latitud norte] y [longitud este, latitud sur]. */
   bounds: [[number, number], [number, number]];
 };
 
 // Encuadres del mapa. El mundo se recorta por arriba y por abajo: los polos solo restan tamaño al resto.
 const REGIONS: Region[] = [
-  { id: "world", label: "Mundo", bounds: [[-170, 78], [180, -58]] },
-  { id: "americas", label: "América", bounds: [[-128, 54], [-30, -44]] },
-  { id: "europe", label: "Europa", bounds: [[-13, 60], [24, 34]] },
+  { id: "world", bounds: [[-170, 78], [180, -58]] },
+  { id: "americas", bounds: [[-128, 54], [-30, -44]] },
+  { id: "europe", bounds: [[-13, 60], [24, 34]] },
 ];
 
 const MIN_SIZE = 12;
@@ -48,15 +48,18 @@ function loadWorldMap(): Promise<void> {
  */
 export function WorldMapChart({ cities, label }: { cities: WorldMapCity[]; label: string }) {
   const router = useRouter();
-  const [regionId, setRegionId] = useState(REGIONS[0].id);
+  const lang = useLocale();
+  const fmt = useFormatters();
+  const messages = useChartMessages().worldMap;
+  const [regionId, setRegionId] = useState<Region["id"]>(REGIONS[0].id);
   const region = REGIONS.find((candidate) => candidate.id === regionId) ?? REGIONS[0];
 
   const openCity = useCallback(
     (index: number) => {
       const city = cities[index];
-      if (city) router.push(`/ciudad/${city.slug}`);
+      if (city) router.push(pathFor(lang, "city", city.slug));
     },
-    [cities, router],
+    [cities, router, lang],
   );
 
   const buildOption = useCallback(
@@ -71,9 +74,9 @@ export function WorldMapChart({ cities, label }: { cities: WorldMapCity[]; label
           formatter: (params: { dataIndex: number }) => {
             const city = cities[params.dataIndex];
             return tooltipContent(theme, `${city.name}, ${city.country}`, [
-              { value: formatUsd(city.price), label: "precio mediano por noche" },
-              { value: formatInt(city.listings), label: "anuncios" },
-              { value: formatPercent(city.occupancy), label: "ocupación estimada" },
+              { value: fmt.usd(city.price), label: messages.price },
+              { value: fmt.int(city.listings), label: messages.listings },
+              { value: fmt.percent(city.occupancy), label: messages.occupancy },
             ]);
           },
         },
@@ -102,7 +105,7 @@ export function WorldMapChart({ cities, label }: { cities: WorldMapCity[]; label
           bottom: 0,
           itemWidth: 10,
           itemHeight: 150,
-          text: [formatUsd(Math.max(...prices)), formatUsd(Math.min(...prices))],
+          text: [fmt.usd(Math.max(...prices)), fmt.usd(Math.min(...prices))],
           textStyle: { color: theme.muted, fontSize: 11 },
           inRange: { color: theme.sequential },
         },
@@ -131,16 +134,16 @@ export function WorldMapChart({ cities, label }: { cities: WorldMapCity[]; label
         ],
       };
     },
-    [cities, region],
+    [cities, region, fmt, messages],
   );
 
-  if (cities.length === 0) return <p className="text-sm text-muted">Sin ciudades publicadas.</p>;
+  if (cities.length === 0) return <p className="text-sm text-muted">{messages.empty}</p>;
 
   return (
     <div>
       <div
         role="group"
-        aria-label="Encuadre del mapa"
+        aria-label={messages.regionsLabel}
         className="mb-3 inline-flex rounded-md border border-hairline p-0.5"
       >
         {REGIONS.map((option) => (
@@ -153,7 +156,7 @@ export function WorldMapChart({ cities, label }: { cities: WorldMapCity[]; label
               regionId === option.id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink"
             }`}
           >
-            {option.label}
+            {messages[option.id]}
           </button>
         ))}
       </div>

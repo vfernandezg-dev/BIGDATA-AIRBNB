@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
+import type { Locale } from "@/i18n/config";
+import { commonMessages } from "@/i18n/messages/common";
+
 type ChartCardProps = {
+  lang: Locale;
   title: string;
   subtitle?: ReactNode;
   children: ReactNode;
@@ -9,7 +13,7 @@ type ChartCardProps = {
   footnote?: ReactNode;
 };
 
-export function ChartCard({ title, subtitle, children, table, footnote }: ChartCardProps) {
+export function ChartCard({ lang, title, subtitle, children, table, footnote }: ChartCardProps) {
   return (
     <figure className="flex min-w-0 flex-col rounded-lg border border-hairline bg-surface p-5">
       <figcaption>
@@ -21,7 +25,7 @@ export function ChartCard({ title, subtitle, children, table, footnote }: ChartC
       {table ? (
         <details className="mt-4 border-t border-hairline pt-3">
           <summary className="w-fit cursor-pointer rounded text-xs font-medium text-ink-2 hover:text-ink">
-            Ver los datos en tabla
+            {commonMessages[lang].chartCard.viewTable}
           </summary>
           <div className="mt-3 max-h-80 overflow-auto">{table}</div>
         </details>

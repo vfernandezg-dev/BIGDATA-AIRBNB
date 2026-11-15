@@ -3,6 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Pruebas de humo: cada página carga, dibuja sus gráficos y no deja errores en la consola.
  * Guardan además una captura de página completa por dispositivo en e2e/.results/, para revisarla a ojo.
+ *
+ * El sitio tiene dos idiomas. El recorrido completo se hace en español (`/es/...`); del inglés (`/en/...`) se
+ * comprueba que cada página está traducida, que el selector cambia de idioma y que las redirecciones llevan
+ * a donde deben.
  */
 
 function collectErrors(page: Page): string[] {
@@ -29,8 +33,9 @@ async function expectChart(page: Page, name: RegExp) {
 
 test("panorama: cifras, gráficos y enlaces a las ciudades", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/");
+  await page.goto("/es");
 
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("El alquiler turístico en");
   await expect(page.getByText("Anuncios analizados")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Precio mediano por noche" })).toBeVisible();
@@ -58,7 +63,7 @@ test("panorama: cifras, gráficos y enlaces a las ciudades", async ({ page }) =>
 });
 
 test("panorama: el mapamundi cambia de encuadre", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/es");
   const chart = await expectChart(page, /Mapamundi: precio mediano por noche/);
 
   const world = page.getByRole("button", { name: "Mundo" });
@@ -74,7 +79,7 @@ test("panorama: el mapamundi cambia de encuadre", async ({ page }) => {
 
 test("páginas legales: fuentes y licencias, y términos de uso", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/licencias");
+  await page.goto("/es/licencias");
 
   await expect(page.getByRole("heading", { level: 1, name: "Fuentes y licencias" })).toBeVisible();
   // Cada ciudad lleva la cita que pide la fuente: proveedor, lugar y fecha de recogida.
@@ -82,6 +87,7 @@ test("páginas legales: fuentes y licencias, y términos de uso", async ({ page 
   await screenshot(page, "licencias");
 
   await page.getByRole("contentinfo").getByRole("link", { name: "Términos de uso" }).click();
+  await expect(page).toHaveURL(/\/es\/terminos$/);
   await expect(page.getByRole("heading", { level: 1, name: "Términos y condiciones de uso" })).toBeVisible();
   await expect(page.getByText("Sin cookies ni seguimiento.")).toBeVisible();
   await screenshot(page, "terminos");
@@ -90,7 +96,7 @@ test("páginas legales: fuentes y licencias, y términos de uso", async ({ page 
 
 test("ciudad: mapa, distribución de precios y barrios", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/ciudad/santiago");
+  await page.goto("/es/ciudad/santiago");
 
   await expect(page.getByRole("heading", { level: 1, name: "Santiago" })).toBeVisible();
   await expect(page.getByText("Precio mediano por noche").first()).toBeVisible();
@@ -109,7 +115,7 @@ test("ciudad: mapa, distribución de precios y barrios", async ({ page }) => {
 });
 
 test("ciudad: el mapa alterna entre mapa de calor y precio por celda", async ({ page }) => {
-  await page.goto("/ciudad/madrid");
+  await page.goto("/es/ciudad/madrid");
   await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 20_000 });
 
   const heat = page.getByRole("button", { name: "Mapa de calor" });
@@ -128,7 +134,7 @@ test("ciudad: el mapa alterna entre mapa de calor y precio por celda", async ({ 
 
 test("ciudad: el detalle de un gráfico aparece al pasar el cursor", async ({ page, isMobile }) => {
   test.skip(isMobile, "El detalle al pasar el cursor es de escritorio; en móvil se usa la tabla.");
-  await page.goto("/ciudad/madrid");
+  await page.goto("/es/ciudad/madrid");
 
   const chart = await expectChart(page, /Histograma: número de anuncios/);
   const box = await chart.boundingBox();
@@ -139,7 +145,7 @@ test("ciudad: el detalle de un gráfico aparece al pasar el cursor", async ({ pa
 });
 
 test("ciudad: cada gráfico tiene sus datos en tabla", async ({ page }) => {
-  await page.goto("/ciudad/madrid");
+  await page.goto("/es/ciudad/madrid");
 
   const card = page.locator("figure").filter({ hasText: "Distribución de precios" });
   await card.getByText("Ver los datos en tabla").click();
@@ -149,7 +155,7 @@ test("ciudad: cada gráfico tiene sus datos en tabla", async ({ page }) => {
 
 test("modelo: métricas, importancia de variables, dispersión y sesgo", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/modelo");
+  await page.goto("/es/modelo");
 
   await expect(page.getByText("Varianza explicada (R²)")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Qué variables pesan más" })).toBeVisible();
@@ -163,7 +169,7 @@ test("modelo: métricas, importancia de variables, dispersión y sesgo", async (
 
 test("metodología: etapas del pipeline y tablas de calidad", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/metodologia");
+  await page.goto("/es/metodologia");
 
   await expect(page.getByRole("heading", { name: "Bronze" })).toBeVisible();
   await expect(page.getByRole("table", { name: "Calidad de los anuncios por ciudad" })).toBeVisible();
@@ -172,8 +178,16 @@ test("metodología: etapas del pipeline y tablas de calidad", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
-test("una ciudad desconocida muestra la página de no encontrado", async ({ page }) => {
-  await page.goto("/ciudad/atlantis");
+test("una dirección desconocida muestra la página de no encontrado de su idioma", async ({ page }) => {
+  await page.goto("/es/ciudad/atlantis");
+  await expect(page.getByRole("heading", { name: "Página no encontrada" })).toBeVisible();
+
+  await page.goto("/en/city/atlantis");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+
+  // Sin idioma en la dirección, se resuelve en español.
+  await page.goto("/no-existe");
+  await expect(page).toHaveURL(/\/es\/no-existe$/);
   await expect(page.getByRole("heading", { name: "Página no encontrada" })).toBeVisible();
 });
 
@@ -183,4 +197,108 @@ test("la revalidación exige el secreto", async ({ request }) => {
 
   const wrongSecret = await request.post("/api/revalidate", { headers: { "x-revalidate-secret": "incorrecto" } });
   expect(wrongSecret.status()).toBe(401);
+});
+
+// ---------------------------------------------------------------------------------------------- idiomas
+
+test("inglés: el panorama está traducido, con sus nombres, cifras y gráficos", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/en");
+
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page).toHaveTitle(/Short-term rentals in 12 cities/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Short-term rentals in");
+  await expect(page.getByText("Listings analyzed")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Price model" })).toBeVisible();
+  await expectChart(page, /World map: median price per night/);
+  await expectChart(page, /Heat map: monthly deviation of reviews/);
+  await expectChart(page, /Stacked bars: breakdown of listings/);
+
+  // Ciudades y países con su nombre en inglés; cifras con el formato inglés (US$1,234, sin espacio).
+  const table = page.getByRole("table", { name: "Indicators by city" });
+  await expect(table.getByRole("link", { name: "London" })).toHaveAttribute("href", "/en/city/london");
+  await expect(table).toContainText("United Kingdom");
+  await expect(table).not.toContainText("Londres");
+  await expect(table).toContainText(/US\$\d/);
+  await expect(page.getByRole("button", { name: "Europe" })).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toContainText("Developed by Valentin Fernandez");
+
+  await page.waitForTimeout(800);
+  await screenshot(page, "en-overview");
+  expect(errors).toEqual([]);
+});
+
+test("inglés: ciudad, modelo, metodología y páginas legales", async ({ page }) => {
+  const errors = collectErrors(page);
+
+  await page.goto("/en/city/london");
+  await expect(page.getByRole("heading", { level: 1, name: "London" })).toBeVisible();
+  await expect(page.getByText("United Kingdom")).toBeVisible();
+  await expect(page.getByText("Median price per night").first()).toBeVisible();
+  await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Heat map" })).toHaveAttribute("aria-pressed", "true");
+  await expectChart(page, /Histogram: number of listings/);
+  await expectChart(page, /Price range by room type/);
+  await expect(page.getByRole("heading", { name: "The most expensive neighborhoods" })).toBeVisible();
+  await page.waitForTimeout(3_000);
+  await screenshot(page, "en-city-london");
+
+  await page.goto("/en/model");
+  await expect(page.getByRole("heading", { level: 1, name: "Price model" })).toBeVisible();
+  await expect(page.getByText("Explained variance (R²)")).toBeVisible();
+  await expectChart(page, /Scatter plot of predicted price/);
+  await screenshot(page, "en-model");
+
+  await page.goto("/en/methodology");
+  await expect(page.getByRole("heading", { name: "Bronze" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Listing quality by city" })).toBeVisible();
+
+  await page.goto("/en/licenses");
+  await expect(page.getByRole("heading", { level: 1, name: "Sources and licenses" })).toBeVisible();
+  await expect(page.getByRole("table", { name: /data collection date/ })).toContainText("Source: Inside Airbnb, London");
+  await screenshot(page, "en-licenses");
+
+  await page.getByRole("contentinfo").getByRole("link", { name: "Terms of use" }).click();
+  await expect(page).toHaveURL(/\/en\/terms$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Terms and conditions of use" })).toBeVisible();
+  await expect(page.getByText("No cookies or tracking.")).toBeVisible();
+  await screenshot(page, "en-terms");
+
+  expect(errors).toEqual([]);
+});
+
+test("el selector de idioma abre la misma página en el otro idioma", async ({ page }) => {
+  await page.goto("/es/ciudad/madrid");
+  await expect(page.getByRole("heading", { level: 1, name: "Madrid" })).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Idioma" }).getByRole("link", { name: "English" }).click();
+  await expect(page).toHaveURL(/\/en\/city\/madrid$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByText("Median price per night").first()).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Methodology" }).click();
+  await expect(page).toHaveURL(/\/en\/methodology$/);
+
+  await page.getByRole("navigation", { name: "Language" }).getByRole("link", { name: "Español" }).click();
+  await expect(page).toHaveURL(/\/es\/metodologia$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(page.getByRole("heading", { level: 1, name: "Metodología" })).toBeVisible();
+});
+
+test("la raíz elige idioma según el navegador y las direcciones antiguas redirigen", async ({ request }) => {
+  const location = async (path: string, acceptLanguage: string) => {
+    const response = await request.get(path, { maxRedirects: 0, headers: { "accept-language": acceptLanguage } });
+    return { status: response.status(), location: response.headers().location };
+  };
+
+  expect(await location("/", "es-PE,es;q=0.9,en;q=0.8")).toEqual({ status: 307, location: "/es" });
+  expect(await location("/", "en-US,en;q=0.9")).toEqual({ status: 307, location: "/en" });
+  // Quien no pide ni español ni inglés recibe la versión en inglés.
+  expect(await location("/", "fr-FR,fr;q=0.9")).toEqual({ status: 307, location: "/en" });
+
+  // Las direcciones anteriores al sitio bilingüe eran las de español: su redirección es permanente y no
+  // depende del idioma del navegador.
+  expect(await location("/ciudad/london", "en-US,en;q=0.9")).toEqual({ status: 308, location: "/es/ciudad/london" });
+  expect(await location("/modelo", "en-US,en;q=0.9")).toEqual({ status: 308, location: "/es/modelo" });
+  expect(await location("/terminos", "en-US,en;q=0.9")).toEqual({ status: 308, location: "/es/terminos" });
 });

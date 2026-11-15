@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatInt, formatPercent, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -46,6 +46,8 @@ function labelPositions(cities: CityBubble[]): Map<string, (typeof LABEL_POSITIO
  * Cada burbuja lleva el nombre de su ciudad: con doce puntos la etiqueta directa sustituye a la leyenda.
  */
 export function CityBubbleChart({ cities, label }: { cities: CityBubble[]; label: string }) {
+  const fmt = useFormatters();
+  const messages = useChartMessages().bubbles;
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -60,31 +62,31 @@ export function CityBubbleChart({ cities, label }: { cities: CityBubble[]; label
           formatter: (params: { dataIndex: number }) => {
             const city = cities[params.dataIndex];
             return tooltipContent(theme, city.name, [
-              { value: formatUsd(city.price), label: "precio mediano" },
-              { value: formatPercent(city.occupancy), label: "ocupación estimada" },
-              { value: formatInt(city.listings), label: "anuncios" },
+              { value: fmt.usd(city.price), label: messages.medianPrice },
+              { value: fmt.percent(city.occupancy), label: messages.occupancy },
+              { value: fmt.int(city.listings), label: messages.listings },
             ]);
           },
         },
         xAxis: {
           type: "value",
           scale: true,
-          name: "Precio mediano por noche (USD)",
+          name: messages.xAxis,
           nameLocation: "middle",
           nameGap: 30,
           ...axis,
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatInt(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.int(value) },
         },
         yAxis: {
           type: "value",
           scale: true,
-          name: "Ocupación estimada",
+          name: messages.yAxis,
           nameLocation: "end",
           ...axis,
           // Tras `...axis`: el nombre del eje se alinea a la izquierda, sobre las etiquetas.
           nameTextStyle: { ...axis.nameTextStyle, align: "left" },
           axisLine: { show: false },
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatPercent(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.percent(value) },
         },
         series: [
           {
@@ -105,7 +107,7 @@ export function CityBubbleChart({ cities, label }: { cities: CityBubble[]; label
         ],
       };
     },
-    [cities],
+    [cities, fmt, messages],
   );
 
   return <EChart buildOption={buildOption} height={380} label={label} />;
