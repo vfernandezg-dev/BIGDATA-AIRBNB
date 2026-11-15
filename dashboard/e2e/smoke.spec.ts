@@ -40,7 +40,16 @@ test("panorama: cifras, gráficos y enlaces a las ciudades", async ({ page }) =>
   await expectChart(page, /Serie temporal: reseñas por mes/);
   await expectChart(page, /Barras apiladas: reparto de los anuncios/);
   await expect(page.getByRole("table", { name: "Indicadores por ciudad" }).getByRole("row")).not.toHaveCount(0);
-  await expect(page.getByRole("contentinfo")).toContainText("Desarrollado por Valentin Fernandez");
+  const footer = page.getByRole("contentinfo");
+  await expect(footer).toContainText("Desarrollado por Valentin Fernandez");
+  await expect(footer.getByRole("link", { name: "Valentin Fernandez" })).toHaveAttribute(
+    "href",
+    "https://vfernandezg.dev",
+  );
+  await expect(footer.getByRole("link", { name: "Código en GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/vfernandezg-dev/airbnb-market-analytics",
+  );
 
   // Las animaciones de entrada terminan antes de la captura.
   await page.waitForTimeout(800);

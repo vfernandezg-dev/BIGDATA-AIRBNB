@@ -3,11 +3,11 @@ export const SITE = {
   name: "BigData Airbnb",
   author: {
     name: "Valentin Fernandez",
-    url: "https://github.com/vfernandezg-dev",
+    url: "https://vfernandezg.dev",
   },
-  repository: "https://github.com/vfernandezg-dev/BIGDATA-AIRBNB",
+  repository: "https://github.com/vfernandezg-dev/airbnb-market-analytics",
   /** Vía de contacto pública: una incidencia en el repositorio. */
-  contact: "https://github.com/vfernandezg-dev/BIGDATA-AIRBNB/issues",
+  contact: "https://github.com/vfernandezg-dev/airbnb-market-analytics/issues",
   /** Fecha de la última revisión de los términos y de la página de licencias (AAAA-MM-DD). */
   legalUpdated: "2026-11-15",
 } as const;

@@ -1,6 +1,6 @@
 # BigData Airbnb
 
-[![CI](https://github.com/vfernandezg-dev/BIGDATA-AIRBNB/actions/workflows/ci.yml/badge.svg)](https://github.com/vfernandezg-dev/BIGDATA-AIRBNB/actions/workflows/ci.yml)
+[![CI](https://github.com/vfernandezg-dev/airbnb-market-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/vfernandezg-dev/airbnb-market-analytics/actions/workflows/ci.yml)
 ![Spark](https://img.shields.io/badge/Apache%20Spark-4.2.1-E25A1C?logo=apachespark&logoColor=white)
 ![Hadoop](https://img.shields.io/badge/HDFS-3.5.0-66CCFF?logo=apachehadoop&logoColor=black)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
@@ -293,7 +293,7 @@ El código anterior se conserva en [`legacy/`](legacy/).
 
 ## Autoría, datos y licencias
 
-Desarrollado por [Valentin Fernandez](https://github.com/vfernandezg-dev). El proyecto nació como trabajo
+Desarrollado por [Valentin Fernandez](https://vfernandezg.dev). El proyecto nació como trabajo
 en equipo del curso de Big Data de la Universidad Privada Antenor Orrego; esa primera versión y su autoría
 están en [`legacy/version_1/`](legacy/version_1/README.md).
 
