@@ -1,0 +1,55 @@
+# Parámetros del pipeline. Cada valor se puede sobrescribir con variables de entorno (ver config.py).
+
+lake:
+  # Cualquier URI que entienda Hadoop: hdfs://, file://, s3a://, abfss://
+  root_uri: hdfs://namenode:8020/lake
+
+source:
+  catalog_url: https://insideairbnb.com/get-the-data/
+  user_agent: airbnb-lake/2.0 (pipeline batch académico)
+  timeout_seconds: 60
+  max_retries: 5
+  download_workers: 4
+  landing_dir: /var/lib/airbnb/landing
+
+bronze:
+  # Tope de filas por archivo Parquet: reparte los CSV grandes en varios archivos sin un shuffle.
+  max_records_per_file: 1000000
+
+cleaning:
+  min_nights_range: [1, 365]
+  availability_range: [0, 365]
+  # Los precios fuera de estos cuantiles, calculados por ciudad, se marcan como atípicos.
+  price_outlier_quantiles: [0.01, 0.99]
+  # Un anuncio a más de esta distancia de la mediana de su ciudad se marca como fuera de zona.
+  max_km_from_city_center: 150
+  valid_room_types: [Entire home/apt, Private room, Shared room, Hotel room]
+
+gold:
+  map_cell_degrees: 0.005
+  price_histogram_bucket_usd: 10
+  price_histogram_max_usd: 500
+  min_listings_per_neighbourhood: 5
+  segmentation:
+    k_candidates: [3, 4, 5, 6]
+    seed: 42
+
+ml:
+  seed: 42
+  train_fraction: 0.8
+  # Las columnas con menos datos que este umbral se descartan automáticamente.
+  min_feature_fill_rate: 0.5
+  top_property_types: 25
+  gbt:
+    max_iter: 80
+    step_size: 0.1
+    max_bins: 128
+    subsampling_rate: 0.8
+    max_depth_grid: [5, 7]
+  validation_train_ratio: 0.85
+  tuning_parallelism: 2
+  prediction_sample_rows: 4000
+
+serving:
+  # Tope de filas por mart: los marts son agregados; superarlo indica un error de diseño.
+  max_rows_per_mart: 250000

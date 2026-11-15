@@ -1,24 +1,38 @@
-venv/
-.docx
-
-# Archivos de configuración sensibles
+# Entorno local y secretos: solo se versiona el ejemplo.
 .env
-config.ini
-secrets.json
-*_secrets.py
+.env.*
+!.env.example
 
-# Archivos de Jupyter
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# Archivos de Python
+# Python
+.venv/
+venv/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
 
-# Archivos de datos grandes
+# Jupyter
+.ipynb_checkpoints/
+
+# Datos: el lake vive en HDFS (volúmenes de Docker), nunca en el repositorio.
 *.csv
+*.csv.gz
 *.parquet
-data_clean_parquet/
+data/
+
+# Dashboard (Next.js)
+node_modules/
+.next/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
+
+# Editores y sistema
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
