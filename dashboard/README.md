@@ -28,9 +28,15 @@ pnpm dev          # http://localhost:3000, con recarga en caliente
 - **`src/lib/queries.ts`** contiene todas las consultas. Cada una se cachea con `use cache` y la etiqueta
   `marts`; `POST /api/revalidate` (con la cabecera `x-revalidate-secret`) invalida esa etiqueta.
 - **`src/lib/db.ts`** abre un pool pequeño de `pg` con el rol de solo lectura.
-- **`src/components/`** tiene los gráficos, escritos en SVG y HTML sin librería de gráficos: barras
-  ordenadas, columnas, series temporales, barra segmentada, barras divergentes, dispersión y el mapa
-  (MapLibre GL sobre el mapa base de OpenFreeMap).
+- **`src/components/charts/`** tiene los gráficos de [Apache ECharts](https://echarts.apache.org/): series
+  temporales, columnas, mapas de calor en rejilla, burbujas, barras apiladas, rangos de precio y
+  dispersiones. `echart.tsx` es el lienzo común (se adapta al ancho y al modo claro u oscuro) y
+  `chart-theme.ts` traduce los colores del sitio, definidos como variables CSS, a opciones de ECharts.
+- **`src/lib/echarts.ts`** registra solo los módulos de ECharts que se usan y se carga con `import()`: la
+  librería no entra en el JavaScript inicial de ninguna página.
+- **`src/components/`** conserva en HTML los gráficos que no necesitan lienzo (barras ordenadas, barra
+  segmentada y barras divergentes) y el mapa (`city-map.tsx`, MapLibre GL sobre el mapa base de
+  OpenFreeMap), con dos vistas: mapa de calor de precios y precio por celda.
 - **`scripts/copy-map-worker.mjs`** copia el worker de MapLibre a `public/maplibre/` antes de `dev` y
   `build`: al empaquetar, MapLibre no puede localizarlo por su ruta relativa.
 
@@ -40,8 +46,10 @@ pnpm dev          # http://localhost:3000, con recarga en caliente
   en modo claro y oscuro.
 - Magnitud con un solo tono (de claro a oscuro); valores por encima y por debajo de un punto neutro con
   dos tonos opuestos.
-- Cada gráfico tiene su tabla equivalente («Ver los datos en tabla») y su detalle es accesible con el
-  teclado: ningún valor depende solo del color ni del cursor.
+- Cada gráfico tiene su tabla equivalente («Ver los datos en tabla»): ningún valor depende solo del color
+  ni de pasar el cursor.
+- Los detalles emergentes se construyen con nodos de texto, no con HTML: los nombres de barrios y ciudades
+  vienen de la fuente de datos.
 
 ## Variables de entorno
 

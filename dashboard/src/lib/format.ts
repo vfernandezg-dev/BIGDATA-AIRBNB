@@ -49,6 +49,20 @@ export function formatPercent(value: Numeric, digits: 0 | 1 = 0): string {
   return digits === 0 ? percent.format(value) : percentOneDecimal.format(value);
 }
 
+/** Variación con signo: 0,18 -> `+18 %`; -0,22 -> `−22 %`. */
+export function formatSignedPercent(value: Numeric): string {
+  if (isMissing(value)) return MISSING;
+  const rounded = Math.round(value * 100);
+  if (rounded === 0) return "0 %";
+  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded)} %`;
+}
+
+/** Nombres cortos de los doce meses: `ene`, `feb`... */
+export function monthNames(): string[] {
+  const month = new Intl.DateTimeFormat(LOCALE, { month: "short", timeZone: "UTC" });
+  return Array.from({ length: 12 }, (_, index) => month.format(new Date(Date.UTC(2024, index, 1))));
+}
+
 /** `2026-09-01` -> `sept 2026`. */
 export function formatMonth(isoDate: string): string {
   return monthYear.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`));

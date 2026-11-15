@@ -109,6 +109,25 @@ export type ModelMetrics = {
   trained_at: string;
 };
 
+export type SeasonalityCell = {
+  city: string;
+  /** Mes del año, de 1 a 12. */
+  month_of_year: number;
+  /** Reseñas del mes divididas por su tendencia: 1 es un mes normal, 1,2 un 20 % por encima. */
+  seasonal_index: number;
+  from_year: number;
+  to_year: number;
+};
+
+export type BiasBucket = {
+  decile: number;
+  min_usd: number;
+  max_usd: number;
+  /** Mediana de precio predicho / precio real dentro del tramo. */
+  median_ratio: number;
+  n: number;
+};
+
 export type FeatureImportance = { feature: string; importance: number; rank: number };
 export type PredictionPoint = { city: string; actual_usd: number; predicted_usd: number };
 
@@ -182,6 +201,44 @@ export async function getReviewsByMonth(): Promise<MonthlyReviews[]> {
        FROM marts.reviews_monthly
       GROUP BY month
       ORDER BY month`,
+  );
+}
+
+/**
+ * Estacionalidad: cuánto se aparta cada mes de lo habitual en su ciudad.
+ *
+ * Las reseñas crecen año tras año, así que comparar meses por su volumen premiaría a los últimos del año.
+ * Aquí cada mes se divide por la media de los doce meses que lo rodean (su tendencia) y el resultado se
+ * promedia por mes del año en los dos últimos años naturales completos. 1 es un mes normal.
+ */
+export async function getSeasonality(): Promise<SeasonalityCell[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(MARTS_TAG);
+  return query<SeasonalityCell>(
+    `WITH bounds AS (
+       SELECT date_trunc('year', max(month)) AS end_month,
+              date_trunc('year', max(month)) - interval '2 years' AS start_month
+         FROM marts.reviews_monthly
+     ),
+     indexed AS (
+       SELECT city, month, n_reviews,
+              avg(n_reviews) OVER centered AS trend,
+              count(*) OVER centered AS window_months
+         FROM marts.reviews_monthly
+       WINDOW centered AS (PARTITION BY city ORDER BY month ROWS BETWEEN 6 PRECEDING AND 5 FOLLOWING)
+     )
+     SELECT i.city,
+            extract(month FROM i.month)::int AS month_of_year,
+            avg(i.n_reviews / i.trend)::float8 AS seasonal_index,
+            extract(year FROM b.start_month)::int AS from_year,
+            extract(year FROM b.end_month)::int - 1 AS to_year
+       FROM indexed i
+      CROSS JOIN bounds b
+      WHERE i.month >= b.start_month AND i.month < b.end_month
+        AND i.window_months = 12 AND i.trend > 0
+      GROUP BY i.city, month_of_year, b.start_month, b.end_month
+      ORDER BY i.city, month_of_year`,
   );
 }
 
@@ -316,6 +373,31 @@ export async function getPredictionSample(limit: number): Promise<PredictionPoin
       ORDER BY id
       LIMIT $1`,
     [limit],
+  );
+}
+
+/**
+ * Sesgo del modelo por tramo de precio: la muestra de prueba se divide en diez grupos del mismo tamaño,
+ * del más barato al más caro, y en cada uno se mide la mediana de precio predicho / precio real.
+ */
+export async function getPredictionBias(): Promise<BiasBucket[]> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(MARTS_TAG);
+  return query<BiasBucket>(
+    `WITH sample AS (
+       SELECT actual_usd, predicted_usd, ntile(10) OVER (ORDER BY actual_usd) AS decile
+         FROM marts.prediction_sample
+        WHERE actual_usd > 0
+     )
+     SELECT decile,
+            min(actual_usd) AS min_usd,
+            max(actual_usd) AS max_usd,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY predicted_usd / actual_usd) AS median_ratio,
+            count(*) AS n
+       FROM sample
+      GROUP BY decile
+      ORDER BY decile`,
   );
 }
 

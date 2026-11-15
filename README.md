@@ -4,6 +4,7 @@
 ![Spark](https://img.shields.io/badge/Apache%20Spark-4.2.1-E25A1C?logo=apachespark&logoColor=white)
 ![Hadoop](https://img.shields.io/badge/HDFS-3.5.0-66CCFF?logo=apachehadoop&logoColor=black)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![ECharts](https://img.shields.io/badge/Apache%20ECharts-6-AA344D?logo=apacheecharts&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
 
 Pipeline batch que descarga los datos abiertos de [Inside Airbnb](https://insideairbnb.com/get-the-data/),
@@ -200,6 +201,10 @@ cp .env.example .env.local      # apunta a la base PostgreSQL local del stack
 pnpm install
 pnpm build && pnpm start        # http://localhost:3000
 ```
+
+Los gráficos usan [Apache ECharts](https://echarts.apache.org/) (mapas de calor de estacionalidad,
+burbujas, barras apiladas, rangos de precio) y el mapa, MapLibre GL, con una vista de mapa de calor de
+precios y otra de precio por celda.
 
 Las páginas se pre-renderizan a partir de los marts y se sirven desde caché: una visita normal no ejecuta
 ninguna consulta. Al terminar de publicar, el pipeline llama a `POST /api/revalidate` y las páginas se

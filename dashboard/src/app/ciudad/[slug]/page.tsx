@@ -5,11 +5,14 @@ import { Suspense } from "react";
 
 import { BarList } from "@/components/bar-list";
 import { ChartCard } from "@/components/chart-card";
+import { ColumnChart } from "@/components/charts/column-chart";
+import { HeatmapChart, type HeatmapCell } from "@/components/charts/heatmap-chart";
+import { NeighbourhoodScatterChart } from "@/components/charts/neighbourhood-scatter-chart";
+import { PriceRangeChart } from "@/components/charts/price-range-chart";
+import { TimeSeriesChart } from "@/components/charts/time-series-chart";
 import { CityMap } from "@/components/city-map";
-import { ColumnChart } from "@/components/column-chart";
 import { DataTable } from "@/components/data-table";
 import { DivergingBars } from "@/components/diverging-bars";
-import { LineChart } from "@/components/line-chart";
 import { SegmentedBar, type Segment } from "@/components/segmented-bar";
 import { StatTile } from "@/components/stat-tile";
 import {
@@ -19,6 +22,7 @@ import {
   formatMonth,
   formatPercent,
   formatUsd,
+  monthNames,
   roomTypeLabel,
 } from "@/lib/format";
 import {
@@ -30,22 +34,26 @@ import {
   getNeighbourhoods,
   getPriceHistogram,
   getRoomTypes,
+  type MonthlyReviews,
   type Neighbourhood,
 } from "@/lib/queries";
 
 // Debe coincidir con `gold.map_cell_degrees` del pipeline (conf/pipeline.yaml).
 const MAP_CELL_DEGREES = 0.005;
 const REVIEWS_SINCE = "2015-01-01";
+const REVIEW_YEARS_IN_HEATMAP = 8;
 const TOP_NEIGHBOURHOODS = 12;
 const TOP_PRICE_INDEX = 6;
 
-// El color sigue al tipo de alojamiento, no a su posición: es el mismo en todas las ciudades.
-const ROOM_TYPE_COLOR: Record<string, Segment["color"]> = {
-  "Entire home/apt": "series-1",
-  "Private room": "series-2",
-  "Hotel room": "series-3",
-  "Shared room": "series-4",
+// El color sigue al tipo de alojamiento, no a su posición: es el mismo en todas las ciudades y en todos
+// los gráficos (reparto y rango de precios).
+const ROOM_TYPE_SLOT: Record<string, 0 | 1 | 2 | 3> = {
+  "Entire home/apt": 0,
+  "Private room": 1,
+  "Hotel room": 2,
+  "Shared room": 3,
 };
+const SLOT_TOKEN: Segment["color"][] = ["series-1", "series-2", "series-3", "series-4"];
 
 type CityPageProps = PageProps<"/ciudad/[slug]">;
 
@@ -66,6 +74,18 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
     title: city.name,
     description: `Precios, barrios, tipos de alojamiento y demanda del alquiler turístico en ${city.name} (${city.country}).`,
   };
+}
+
+/** Reseñas de los últimos años como rejilla año × mes: deja ver a la vez la estacionalidad y el crecimiento. */
+function reviewsByYearAndMonth(reviews: MonthlyReviews[]): { years: string[]; cells: HeatmapCell[] } {
+  const lastYear = Number(reviews.at(-1)?.month.slice(0, 4));
+  if (!lastYear) return { years: [], cells: [] };
+  const years = Array.from({ length: REVIEW_YEARS_IN_HEATMAP }, (_, index) => String(lastYear - index));
+  const cells = reviews.flatMap((row): HeatmapCell[] => {
+    const yearIndex = years.indexOf(row.month.slice(0, 4));
+    return yearIndex === -1 ? [] : [[Number(row.month.slice(5, 7)) - 1, yearIndex, row.n_reviews]];
+  });
+  return { years, cells };
 }
 
 /**
@@ -97,6 +117,7 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
     getHostConcentration(slug),
   ]);
 
+  const months = monthNames();
   const priced = neighbourhoods.filter((item) => item.median_price_usd !== null);
   const mostExpensive = [...priced]
     .sort((a, b) => (b.median_price_usd ?? 0) - (a.median_price_usd ?? 0))
@@ -108,8 +129,28 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
       ? [...byIndex.slice(0, TOP_PRICE_INDEX), ...byIndex.slice(-TOP_PRICE_INDEX)]
       : byIndex;
   const recentReviews = reviews.filter((row) => row.month >= REVIEWS_SINCE);
+  const reviewGrid = reviewsByYearAndMonth(reviews);
   const totalHostListings = hosts.reduce((sum, bucket) => sum + bucket.n_listings, 0);
   const lastBucket = histogram.at(-1);
+  const priceRanges = roomTypes.flatMap((row) =>
+    row.p25_price_usd === null || row.median_price_usd === null || row.p75_price_usd === null
+      ? []
+      : [
+          {
+            label: roomTypeLabel(row.room_type),
+            p25: row.p25_price_usd,
+            median: row.median_price_usd,
+            p75: row.p75_price_usd,
+            color: ROOM_TYPE_SLOT[row.room_type] ?? 3,
+          },
+        ],
+  );
+  const neighbourhoodPoints = priced.map((item) => ({
+    name: item.neighbourhood,
+    listings: item.n_listings,
+    price: item.median_price_usd ?? 0,
+    rating: item.avg_rating,
+  }));
 
   return (
     <div className="space-y-8">
@@ -168,9 +209,9 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
       </section>
 
       <ChartCard
-        title="Dónde están los anuncios y cuánto cuestan"
-        subtitle="Cada celda mide unos 500 metros de lado y su color indica el precio mediano por noche de los anuncios que contiene. Pasa el cursor por una celda para ver el detalle."
-        footnote="Cada color agrupa una quinta parte de las celdas con precio. Para acercar el mapa, mantén pulsada la tecla Ctrl mientras desplazas, o usa dos dedos."
+        title="Dónde están los alojamientos más caros"
+        subtitle="El mapa de calor resalta las zonas donde se concentran los precios por encima de la mediana de la ciudad: cuanto más intenso el color, más caros los alojamientos de esa zona. La vista por celdas muestra el precio mediano de cada cuadrícula de unos 500 metros."
+        footnote="Para acercar el mapa, mantén pulsada la tecla Ctrl mientras desplazas, o usa dos dedos. En la vista por celdas, pasa el cursor por una celda para ver su precio; cada color agrupa una quinta parte de las celdas."
       >
         <CityMap
           cells={cells}
@@ -210,8 +251,8 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
           <ColumnChart
             valueFormat="int"
             valueLabel="anuncios"
+            label="Histograma: número de anuncios por tramo de precio por noche"
             data={histogram.map((row) => ({
-              key: String(row.bucket_from_usd),
               tick: row.bucket_to_usd === null ? `${row.bucket_from_usd}+` : String(row.bucket_from_usd),
               label:
                 row.bucket_to_usd === null
@@ -223,19 +264,9 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
         </ChartCard>
 
         <ChartCard
-          title="Qué se alquila"
-          subtitle="Reparto de los anuncios por tipo de alojamiento, con el precio mediano de cada uno."
-        >
-          <SegmentedBar
-            unit="anuncios"
-            segments={roomTypes.map((row) => ({
-              key: row.room_type,
-              label: roomTypeLabel(row.room_type),
-              value: row.n_listings,
-              color: ROOM_TYPE_COLOR[row.room_type] ?? "series-4",
-            }))}
-          />
-          <div className="mt-5">
+          title="Qué se alquila y a qué precio"
+          subtitle="Reparto de los anuncios por tipo de alojamiento y, debajo, el rango de precios de cada uno: la barra cubre la mitad central de los anuncios y la marca señala la mediana."
+          table={
             <DataTable
               caption="Tipos de alojamiento"
               rows={roomTypes}
@@ -244,9 +275,27 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
                 { header: "Tipo", cell: (row) => roomTypeLabel(row.room_type) },
                 { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
                 { header: "Cuota", align: "right", cell: (row) => formatPercent(row.listings_share, 1) },
-                { header: "Precio mediano", align: "right", cell: (row) => formatUsd(row.median_price_usd) },
+                { header: "Percentil 25", align: "right", cell: (row) => formatUsd(row.p25_price_usd) },
+                { header: "Mediana", align: "right", cell: (row) => formatUsd(row.median_price_usd) },
+                { header: "Percentil 75", align: "right", cell: (row) => formatUsd(row.p75_price_usd) },
                 { header: "Capacidad media", align: "right", cell: (row) => formatDecimal(row.avg_accommodates) },
               ]}
+            />
+          }
+        >
+          <SegmentedBar
+            unit="anuncios"
+            segments={roomTypes.map((row) => ({
+              key: row.room_type,
+              label: roomTypeLabel(row.room_type),
+              value: row.n_listings,
+              color: SLOT_TOKEN[ROOM_TYPE_SLOT[row.room_type] ?? 3],
+            }))}
+          />
+          <div className="mt-5">
+            <PriceRangeChart
+              ranges={priceRanges}
+              label="Rango de precios por tipo de alojamiento: del percentil 25 al 75, con la mediana"
             />
           </div>
         </ChartCard>
@@ -298,10 +347,21 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
         </ChartCard>
       </section>
 
+      <ChartCard
+        title="Oferta frente a precio, barrio a barrio"
+        subtitle="Cada punto es un barrio: hacia la derecha tiene más anuncios; hacia arriba, es más caro. Arriba a la izquierda quedan los barrios caros con poca oferta; abajo a la derecha, los que tienen mucha oferta y precios bajos."
+        footnote="Se etiquetan los barrios con más anuncios y los más caros; el resto, al pasar el cursor. Las cifras de todos los barrios están en la tabla de «Los barrios más caros»."
+      >
+        <NeighbourhoodScatterChart
+          points={neighbourhoodPoints}
+          label="Dispersión: número de anuncios frente a precio mediano por barrio"
+        />
+      </ChartCard>
+
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Reseñas por mes"
-          subtitle="Cada reseña corresponde a una estancia terminada: su ritmo aproxima la demanda y deja ver la estacionalidad."
+          subtitle="Cada reseña corresponde a una estancia terminada: su ritmo aproxima la demanda."
           table={
             <DataTable
               caption="Reseñas por mes"
@@ -314,9 +374,31 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
             />
           }
         >
-          <LineChart data={recentReviews.map((row) => ({ month: row.month, value: row.n_reviews }))} valueLabel="reseñas" />
+          <TimeSeriesChart
+            data={recentReviews.map((row) => ({ month: row.month, value: row.n_reviews }))}
+            valueLabel="reseñas"
+            label={`Serie temporal: reseñas por mes en ${city.name}`}
+          />
         </ChartCard>
 
+        <ChartCard
+          title="Reseñas por año y mes"
+          subtitle="Las mismas reseñas, en rejilla: de arriba abajo se ve el crecimiento de un año a otro; de izquierda a derecha, los meses fuertes y flojos."
+          footnote="Las celdas en blanco son meses sin datos; el último mes con datos está incompleto."
+        >
+          <HeatmapChart
+            scale="sequential"
+            rows={reviewGrid.years}
+            columns={months}
+            cells={reviewGrid.cells}
+            valueLabel="reseñas"
+            scaleLabels={["Menos reseñas", "Más reseñas"]}
+            label={`Mapa de calor: reseñas por año y mes en ${city.name}`}
+          />
+        </ChartCard>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Disponibilidad en los próximos meses"
           subtitle="Porcentaje de noches que los calendarios muestran libres. Una noche no disponible puede estar reservada o bloqueada por el anfitrión."
@@ -337,41 +419,41 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
             valueFormat="percent"
             valueLabel="de noches libres"
             fixedMax={1}
+            label="Columnas: porcentaje de noches libres por mes"
             data={availability.map((row) => ({
-              key: row.month,
               tick: formatMonth(row.month).split(" ")[0],
               label: formatMonth(row.month),
               value: row.availability_rate ?? 0,
             }))}
           />
         </ChartCard>
-      </section>
 
-      <ChartCard
-        title="Quién ofrece los alojamientos"
-        subtitle="Anuncios según cuántos gestiona su anfitrión en la ciudad. Los tramos altos corresponden a operadores profesionales."
-        table={
-          <DataTable
-            caption="Concentración de anfitriones"
-            rows={hosts}
-            rowKey={(row) => String(row.bucket_order)}
-            columns={[
-              { header: "Anuncios por anfitrión", cell: (row) => row.bucket_label },
-              { header: "Anfitriones", align: "right", cell: (row) => formatInt(row.n_hosts) },
-              { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
-            ]}
+        <ChartCard
+          title="Quién ofrece los alojamientos"
+          subtitle="Anuncios según cuántos gestiona su anfitrión en la ciudad. Los tramos altos corresponden a operadores profesionales."
+          table={
+            <DataTable
+              caption="Concentración de anfitriones"
+              rows={hosts}
+              rowKey={(row) => String(row.bucket_order)}
+              columns={[
+                { header: "Anuncios por anfitrión", cell: (row) => row.bucket_label },
+                { header: "Anfitriones", align: "right", cell: (row) => formatInt(row.n_hosts) },
+                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
+              ]}
+            />
+          }
+        >
+          <BarList
+            rows={hosts.map((bucket) => ({
+              key: String(bucket.bucket_order),
+              label: bucket.bucket_label === "1" ? "1 anuncio" : `${bucket.bucket_label} anuncios`,
+              value: bucket.n_listings,
+              display: `${formatInt(bucket.n_listings)} (${formatPercent(totalHostListings > 0 ? bucket.n_listings / totalHostListings : 0)})`,
+            }))}
           />
-        }
-      >
-        <BarList
-          rows={hosts.map((bucket) => ({
-            key: String(bucket.bucket_order),
-            label: bucket.bucket_label === "1" ? "1 anuncio" : `${bucket.bucket_label} anuncios`,
-            value: bucket.n_listings,
-            display: `${formatInt(bucket.n_listings)} (${formatPercent(totalHostListings > 0 ? bucket.n_listings / totalHostListings : 0)})`,
-          }))}
-        />
-      </ChartCard>
+        </ChartCard>
+      </section>
     </div>
   );
 }

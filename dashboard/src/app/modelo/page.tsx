@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 
 import { BarList } from "@/components/bar-list";
 import { ChartCard } from "@/components/chart-card";
+import { BiasChart } from "@/components/charts/bias-chart";
+import { PredictionScatterChart } from "@/components/charts/prediction-scatter-chart";
 import { DataTable } from "@/components/data-table";
-import { ScatterChart } from "@/components/scatter-chart";
 import { StatTile } from "@/components/stat-tile";
 import { featureLabel, formatDate, formatDecimal, formatInt, formatPercent, formatUsd } from "@/lib/format";
 import {
   getCities,
   getFeatureImportance,
   getModelMetrics,
+  getPredictionBias,
   getPredictionSample,
   getSegmentProfiles,
   type ModelMetrics,
@@ -26,10 +28,11 @@ const TOP_FEATURES = 15;
 const SCATTER_POINTS = 1500;
 
 export default async function ModelPage() {
-  const [metrics, importance, sample, segments, cities] = await Promise.all([
+  const [metrics, importance, sample, bias, segments, cities] = await Promise.all([
     getModelMetrics(),
     getFeatureImportance(TOP_FEATURES),
     getPredictionSample(SCATTER_POINTS),
+    getPredictionBias(),
     getSegmentProfiles(),
     getCities(),
   ]);
@@ -146,18 +149,58 @@ export default async function ModelPage() {
         </ChartCard>
       </section>
 
-      <ChartCard
-        title="Precio predicho frente a precio real"
-        subtitle={`Muestra aleatoria de ${formatInt(sample.length)} anuncios de prueba. Sobre la diagonal, la predicción coincide con el precio publicado. El modelo tiende a quedarse corto en los anuncios más caros y a pasarse en los más baratos.`}
-      >
-        <ScatterChart
-          points={sample.map((point) => ({
-            actual: point.actual_usd,
-            predicted: point.predicted_usd,
-            label: cityName.get(point.city) ?? point.city,
-          }))}
-        />
-      </ChartCard>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <ChartCard
+          title="Precio predicho frente a precio real"
+          subtitle={`Muestra aleatoria de ${formatInt(sample.length)} anuncios de prueba. Sobre la diagonal, la predicción coincide con el precio publicado.`}
+        >
+          <PredictionScatterChart
+            label="Dispersión del precio predicho frente al precio real de una muestra de anuncios de prueba"
+            points={sample.map((point) => ({
+              actual: point.actual_usd,
+              predicted: point.predicted_usd,
+              label: cityName.get(point.city) ?? point.city,
+            }))}
+          />
+        </ChartCard>
+
+        <ChartCard
+          title="Dónde se equivoca: sesgo por tramo de precio"
+          subtitle="Los anuncios de prueba, en diez grupos del más barato al más caro. Cada barra es la mediana de precio predicho entre precio real: en 1, el modelo acierta."
+          footnote="El modelo tiende a pasarse en los anuncios más baratos y a quedarse corto en los más caros: tira de los extremos hacia el centro."
+          table={
+            <DataTable
+              caption="Sesgo del modelo por tramo de precio real"
+              rows={bias}
+              rowKey={(row) => String(row.decile)}
+              columns={[
+                { header: "Precio real", cell: (row) => `${formatUsd(row.min_usd)} – ${formatInt(row.max_usd)}` },
+                { header: "Predicho / real", align: "right", cell: (row) => formatDecimal(row.median_ratio, 2) },
+                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n) },
+              ]}
+            />
+          }
+        >
+          <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm bg-diverging-high" />
+              Predice de más
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm bg-diverging-low" />
+              Predice de menos
+            </li>
+          </ul>
+          <BiasChart
+            label="Barras: mediana de precio predicho entre precio real, por tramo de precio"
+            buckets={bias.map((row) => ({
+              label: `${formatInt(row.min_usd)}–${formatInt(row.max_usd)}`,
+              ratio: row.median_ratio,
+              count: row.n,
+            }))}
+          />
+        </ChartCard>
+      </section>
 
       <section aria-labelledby="como-se-lee" className="max-w-3xl space-y-3 text-sm leading-relaxed text-ink-2">
         <h2 id="como-se-lee" className="text-xl font-semibold tracking-tight text-ink">

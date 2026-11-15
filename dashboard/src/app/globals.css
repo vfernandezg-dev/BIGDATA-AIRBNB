@@ -26,6 +26,7 @@
 
   /* Divergente: dos polos opuestos y un punto medio neutro. */
   --diverging-low: #2a78d6;
+  --diverging-mid: #f0efec;
   --diverging-high: #e34948;
 
   /* Secuencial (magnitud): un solo tono, de claro a oscuro. */
@@ -56,7 +57,15 @@
     --series-context: #52514e;
 
     --diverging-low: #3987e5;
+    --diverging-mid: #383835;
     --diverging-high: #e66767;
+
+    /* En oscuro la rampa se invierte: «poco» queda cerca de la superficie y «mucho» es lo más claro. */
+    --seq-1: #104281;
+    --seq-2: #1c5cab;
+    --seq-3: #2a78d6;
+    --seq-4: #6da7ec;
+    --seq-5: #b7d3f6;
   }
 }
 

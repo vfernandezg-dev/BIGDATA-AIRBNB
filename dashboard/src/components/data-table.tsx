@@ -23,7 +23,7 @@ export function DataTable<Row>({ caption, columns, rows, rowKey }: DataTableProp
             <th
               key={column.header}
               scope="col"
-              className={`sticky top-0 border-b border-axis bg-surface px-2 py-2 text-xs font-medium text-ink-2 ${
+              className={`sticky top-0 whitespace-nowrap border-b border-axis bg-surface px-2 py-2 text-xs font-medium text-ink-2 ${
                 column.align === "right" ? "text-right" : "text-left"
               }`}
             >
@@ -36,7 +36,7 @@ export function DataTable<Row>({ caption, columns, rows, rowKey }: DataTableProp
         {rows.map((row) => (
           <tr key={rowKey(row)} className="border-b border-grid last:border-0 hover:bg-wash">
             {columns.map((column, index) => {
-              const className = `px-2 py-1.5 ${column.align === "right" ? "text-right" : "text-left"}`;
+              const className = `whitespace-nowrap px-2 py-1.5 ${column.align === "right" ? "text-right" : "text-left"}`;
               return index === 0 ? (
                 <th key={column.header} scope="row" className={`${className} font-normal text-ink`}>
                   {column.cell(row)}

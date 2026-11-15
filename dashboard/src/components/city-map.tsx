@@ -17,13 +17,26 @@ type CityMapProps = {
   cityName: string;
 };
 
+type MapMode = "heat" | "cells";
+
 const BASEMAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 // Copiado a public/ por scripts/copy-map-worker.mjs.
 const WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
-// Rampa secuencial de un solo tono: más oscuro significa más caro.
+
+// Celdas: rampa secuencial de un solo tono, más oscuro significa más caro.
 const PRICE_COLORS = ["#b7d3f6", "#6da7ec", "#2a78d6", "#1c5cab", "#0d366b"];
 const NO_PRICE_COLOR = "#c3c2b7";
 const NO_PRICE_CLASS = PRICE_COLORS.length;
+
+// Mapa de calor: rampa cálida (de amarillo a rojo), la convención de este tipo de mapa, con su escala.
+const HEAT_COLORS = ["#fde7a3", "#f9b24d", "#eb6834", "#b3261e"];
+// Una celda con pocos anuncios pesa menos: un único alojamiento de lujo no debe encender una zona.
+const LISTINGS_FOR_FULL_WEIGHT = 3;
+
+const MODES: { id: MapMode; label: string }[] = [
+  { id: "heat", label: "Mapa de calor" },
+  { id: "cells", label: "Precio por celda" },
+];
 
 function priceClass(price: number | null, breaks: number[]): number {
   if (price === null) return NO_PRICE_CLASS;
@@ -32,23 +45,31 @@ function priceClass(price: number | null, breaks: number[]): number {
 }
 
 /**
- * Mapa de la ciudad con los anuncios agregados en celdas de unos 500 m, coloreadas por precio mediano.
+ * Mapa de la ciudad con los anuncios agregados en celdas de unos 500 m, en dos vistas:
+ *
+ * - Mapa de calor: resalta las zonas donde se concentran las celdas más caras que la mediana de la ciudad.
+ * - Precio por celda: cada celda con el color de su precio mediano, para leer valores concretos.
+ *
  * Servir celdas en lugar de anuncios mantiene el mapa ligero aunque la ciudad tenga cien mil anuncios.
  */
 export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) {
   const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const [mode, setMode] = useState<MapMode>("heat");
+  const modeRef = useRef(mode);
   const [failed, setFailed] = useState(false);
 
-  // Cortes por quintiles: cada color contiene, aproximadamente, el mismo número de celdas.
-  const breaks = useMemo(() => {
+  const stats = useMemo(() => {
     const prices = cells.map((cell) => cell[3]).filter((price): price is number => price !== null);
+    // Cortes por quintiles: cada color contiene, aproximadamente, el mismo número de celdas.
     const raw = quantiles(prices, [0.2, 0.4, 0.6, 0.8]);
-    return raw.filter((value, index) => index === 0 || value > raw[index - 1]);
+    const breaks = raw.filter((value, index) => index === 0 || value > raw[index - 1]);
+    const [median, high] = quantiles(prices, [0.5, 0.9]);
+    return { breaks, median, high };
   }, [cells]);
 
   useEffect(() => {
     if (!container.current) return;
-    let map: MapLibreMap | undefined;
     let cancelled = false;
 
     (async () => {
@@ -57,9 +78,9 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
       maplibregl.setWorkerUrl(WORKER_URL);
 
       const half = cellDegrees / 2;
-      const features = cells.map(([lat, lon, listings, price]) => ({
+      const polygons = cells.map(([lat, lon, listings, price]) => ({
         type: "Feature" as const,
-        properties: { listings, price, priceClass: priceClass(price, breaks) },
+        properties: { listings, price, priceClass: priceClass(price, stats.breaks) },
         geometry: {
           type: "Polygon" as const,
           coordinates: [
@@ -74,6 +95,21 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
         },
       }));
 
+      // Peso de cada celda en el mapa de calor: 0 en la mediana de la ciudad y 1 en el percentil 90 o más.
+      const priceSpan = Math.max(stats.high - stats.median, 1);
+      const points = cells.flatMap(([lat, lon, listings, price]) => {
+        if (price === null || price <= stats.median) return [];
+        const priceWeight = Math.min(1, (price - stats.median) / priceSpan);
+        const supportWeight = Math.min(1, listings / LISTINGS_FOR_FULL_WEIGHT);
+        return [
+          {
+            type: "Feature" as const,
+            properties: { weight: priceWeight * supportWeight },
+            geometry: { type: "Point" as const, coordinates: [lon, lat] },
+          },
+        ];
+      });
+
       const instance = new maplibregl.Map({
         container: container.current,
         style: BASEMAP_STYLE,
@@ -86,25 +122,58 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
         cooperativeGestures: true,
         attributionControl: { compact: true },
       });
-      map = instance;
+      mapRef.current = instance;
       instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       instance.on("error", () => setFailed(true));
 
       const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
 
       instance.on("load", () => {
-        instance.addSource("cells", { type: "geojson", data: { type: "FeatureCollection", features } });
+        instance.addSource("cells", { type: "geojson", data: { type: "FeatureCollection", features: polygons } });
+        instance.addSource("heat", { type: "geojson", data: { type: "FeatureCollection", features: points } });
+
         const colorByClass: (string | number)[] = [];
         PRICE_COLORS.forEach((color, index) => colorByClass.push(index, color));
         instance.addLayer({
           id: "cells",
           type: "fill",
           source: "cells",
+          layout: { visibility: modeRef.current === "cells" ? "visible" : "none" },
           paint: {
             "fill-color": ["match", ["get", "priceClass"], ...colorByClass, NO_PRICE_COLOR] as never,
             "fill-opacity": 0.78,
             // El borde claro separa celdas vecinas del mismo color sin añadir un trazo con peso de dato.
             "fill-outline-color": "rgba(252, 252, 251, 0.7)",
+          },
+        });
+
+        instance.addLayer({
+          id: "heat",
+          type: "heatmap",
+          source: "heat",
+          layout: { visibility: modeRef.current === "heat" ? "visible" : "none" },
+          paint: {
+            "heatmap-weight": ["get", "weight"],
+            // El radio se duplica con cada nivel de zoom, como el tamaño en pantalla de una celda: la mancha
+            // cubre siempre dos o tres celdas a cada lado.
+            "heatmap-radius": ["interpolate", ["exponential", 2], ["zoom"], 8, 4, 16, 1024],
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 1, 14, 2],
+            "heatmap-opacity": 0.82,
+            "heatmap-color": [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0,
+              "rgba(253, 231, 163, 0)",
+              0.12,
+              HEAT_COLORS[0],
+              0.4,
+              HEAT_COLORS[1],
+              0.7,
+              HEAT_COLORS[2],
+              1,
+              HEAT_COLORS[3],
+            ],
           },
         });
 
@@ -131,43 +200,101 @@ export function CityMap({ cells, cellDegrees, bounds, cityName }: CityMapProps) 
 
     return () => {
       cancelled = true;
-      map?.remove();
+      mapRef.current?.remove();
+      mapRef.current = null;
     };
-  }, [cells, cellDegrees, bounds, breaks]);
+  }, [cells, cellDegrees, bounds, stats]);
 
-  const legend = PRICE_COLORS.slice(0, breaks.length + 1).map((color, index) => {
-    const from = index === 0 ? null : breaks[index - 1];
-    const to = index < breaks.length ? breaks[index] : null;
+  // Cambiar de vista solo alterna la visibilidad de dos capas ya cargadas: no se vuelve a crear el mapa.
+  useEffect(() => {
+    modeRef.current = mode;
+    const map = mapRef.current;
+    if (!map || !map.getLayer("cells") || !map.getLayer("heat")) return;
+    map.setLayoutProperty("cells", "visibility", mode === "cells" ? "visible" : "none");
+    map.setLayoutProperty("heat", "visibility", mode === "heat" ? "visible" : "none");
+  }, [mode]);
+
+  const cellLegend = PRICE_COLORS.slice(0, stats.breaks.length + 1).map((color, index) => {
+    const from = index === 0 ? null : stats.breaks[index - 1];
+    const to = index < stats.breaks.length ? stats.breaks[index] : null;
     const label =
-      from === null ? `Menos de ${formatUsd(to)}` : to === null ? `${formatUsd(from)} o más` : `${formatUsd(from)} – ${formatInt(to)}`;
+      from === null
+        ? `Menos de ${formatUsd(to)}`
+        : to === null
+          ? `${formatUsd(from)} o más`
+          : `${formatUsd(from)} – ${formatInt(to)}`;
     return { color, label };
   });
 
   return (
     <div>
       <div
+        role="group"
+        aria-label="Vista del mapa"
+        className="mb-3 inline-flex rounded-md border border-hairline p-0.5"
+      >
+        {MODES.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={mode === option.id}
+            onClick={() => setMode(option.id)}
+            className={`rounded px-3 py-1 text-xs font-medium ${
+              mode === option.id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div
         ref={container}
         role="application"
-        aria-label={`Mapa de ${cityName}: precio mediano por noche en celdas de unos 500 metros`}
-        className="h-[420px] w-full overflow-hidden rounded-md border border-hairline text-[#0b0b0b]"
+        aria-label={`Mapa de ${cityName}: precio por noche de los anuncios, agregados en celdas de unos 500 metros`}
+        className="h-[460px] w-full overflow-hidden rounded-md border border-hairline text-[#0b0b0b]"
       />
       {failed ? (
         <p className="mt-2 text-xs text-muted">
           No se pudo cargar el mapa base. Los datos por barrio están en las tablas de esta página.
         </p>
       ) : null}
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-label="Escala de precio mediano">
-        {legend.map((entry) => (
-          <li key={entry.label} className="flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-2.5 w-4 rounded-sm ring-1 ring-hairline" style={{ background: entry.color }} />
-            <span className="tabular">{entry.label}</span>
+
+      {mode === "heat" ? (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2"
+          aria-label="Escala del mapa de calor"
+        >
+          <span className="tabular">{formatUsd(stats.median)} (mediana de la ciudad)</span>
+          <span
+            aria-hidden
+            className="inline-block h-2.5 w-36 rounded-sm ring-1 ring-hairline"
+            style={{ background: `linear-gradient(to right, ${HEAT_COLORS.join(", ")})` }}
+          />
+          <span className="tabular">{formatUsd(stats.high)} o más</span>
+        </div>
+      ) : (
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-label="Escala de precio mediano">
+          {cellLegend.map((entry) => (
+            <li key={entry.label} className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="inline-block h-2.5 w-4 rounded-sm ring-1 ring-hairline"
+                style={{ background: entry.color }}
+              />
+              <span className="tabular">{entry.label}</span>
+            </li>
+          ))}
+          <li className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block h-2.5 w-4 rounded-sm ring-1 ring-hairline"
+              style={{ background: NO_PRICE_COLOR }}
+            />
+            Sin precio publicado
           </li>
-        ))}
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden className="inline-block h-2.5 w-4 rounded-sm ring-1 ring-hairline" style={{ background: NO_PRICE_COLOR }} />
-          Sin precio publicado
-        </li>
-      </ul>
+        </ul>
+      )}
     </div>
   );
 }
