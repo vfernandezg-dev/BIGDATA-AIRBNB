@@ -205,8 +205,14 @@ pnpm build && pnpm start        # http://localhost:3000
 Los gráficos usan [Apache ECharts](https://echarts.apache.org/) (mapamundi interactivo, mapas de calor
 de estacionalidad, burbujas, barras apiladas, rangos de precio) y el mapa de cada ciudad, MapLibre GL, con
 una vista de mapa de calor de precios y otra de precio por celda. El sitio incluye además sus páginas de
-[fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/licencias) y de
-[términos de uso](https://bigdata-airbnb.vfernandezg.dev/terminos).
+[fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/es/licencias) y de
+[términos de uso](https://bigdata-airbnb.vfernandezg.dev/es/terminos).
+
+El sitio está en **español e inglés**. El idioma va en la dirección, con las rutas traducidas
+(`/es/ciudad/london`, `/en/city/london`), y no se guarda en cookies: la raíz redirige según el idioma del
+navegador y las direcciones anteriores, sin prefijo, redirigen a su versión en español. Los textos, el
+formato de cifras y fechas y los nombres de ciudades y países están en
+[`dashboard/src/i18n/`](dashboard/src/i18n/).
 
 Las páginas se pre-renderizan a partir de los marts y se sirven desde caché: una visita normal no ejecuta
 ninguna consulta. Al terminar de publicar, el pipeline llama a `POST /api/revalidate` y las páginas se
@@ -219,7 +225,9 @@ regeneran en la siguiente visita. El sitio se conecta con un rol de solo lectura
 E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e
 ```
 
-El firewall de producción admite 1.200 peticiones por minuto y por IP; la batería completa hace unas 600.
+El firewall de producción admite 1.200 peticiones por minuto y por IP, y la batería completa hace unas
+1.100. Por eso, contra un sitio desplegado las pruebas usan solo dos procesos en paralelo: tardan un par de
+minutos y se quedan lejos del límite.
 
 ## Publicar en producción
 
@@ -304,7 +312,7 @@ En cumplimiento de esa licencia y de las
 
 - **Atribución.** Cada ciudad se cita con su proveedor, lugar y fecha de recogida (por ejemplo, «Fuente:
   Inside Airbnb, Santiago, septiembre de 2026»). La lista completa está en la página de
-  [fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/licencias) del sitio.
+  [fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/es/licencias) del sitio.
 - **Modificaciones.** Los datos se limpian, se convierten a dólares con un tipo de cambio fijo y se
   agregan; las cifras publicadas son una elaboración propia.
 - **Sin redistribución.** Ni el repositorio ni el sitio contienen los datos originales: el pipeline los

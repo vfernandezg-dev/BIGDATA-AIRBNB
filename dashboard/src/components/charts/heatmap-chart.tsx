@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatInt, formatSignedPercent } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -33,11 +33,13 @@ const CHROME_HEIGHT = 86;
  * Las celdas se separan con un hueco del color de la superficie, no con un borde dibujado.
  */
 export function HeatmapChart({ rows, columns, cells, scale, valueLabel, scaleLabels, label }: HeatmapChartProps) {
+  const fmt = useFormatters();
+  const messages = useChartMessages();
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
       const values = cells.map((cell) => cell[2]);
-      const format = scale === "diverging" ? formatSignedPercent : formatInt;
+      const format = scale === "diverging" ? fmt.signedPercent : fmt.int;
       // En el divergente la escala es simétrica: el tono neutro cae exactamente en el cero.
       const extreme = Math.max(...values.map(Math.abs), 0);
       const range =
@@ -100,9 +102,9 @@ export function HeatmapChart({ rows, columns, cells, scale, valueLabel, scaleLab
         ],
       };
     },
-    [rows, columns, cells, scale, valueLabel, scaleLabels],
+    [rows, columns, cells, scale, valueLabel, scaleLabels, fmt],
   );
 
-  if (cells.length === 0) return <p className="text-sm text-muted">Sin datos.</p>;
+  if (cells.length === 0) return <p className="text-sm text-muted">{messages.noData}</p>;
   return <EChart buildOption={buildOption} height={rows.length * ROW_HEIGHT + CHROME_HEIGHT} label={label} />;
 }

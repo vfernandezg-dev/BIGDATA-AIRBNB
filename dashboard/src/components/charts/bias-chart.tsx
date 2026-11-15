@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatDecimal, formatInt } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -20,6 +20,9 @@ export type BiasBucket = {
  * Hacia arriba, en tono cálido, el modelo predice de más; hacia abajo, en tono frío, de menos.
  */
 export function BiasChart({ buckets, label }: { buckets: BiasBucket[]; label: string }) {
+  const fmt = useFormatters();
+  const chart = useChartMessages();
+  const messages = chart.bias;
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -32,10 +35,9 @@ export function BiasChart({ buckets, label }: { buckets: BiasBucket[]; label: st
           axisPointer: { type: "shadow", shadowStyle: { color: theme.wash } },
           formatter: (params: { dataIndex: number }[]) => {
             const bucket = buckets[params[0].dataIndex];
-            const direction = bucket.ratio >= 1 ? "predice de más" : "predice de menos";
-            return tooltipContent(theme, `Precio real: ${bucket.label}`, [
-              { value: formatDecimal(bucket.ratio, 2), label: `predicho / real (${direction})` },
-              { value: formatInt(bucket.count), label: "anuncios en el tramo" },
+            return tooltipContent(theme, messages.title(bucket.label), [
+              { value: fmt.decimal(bucket.ratio, 2), label: bucket.ratio >= 1 ? messages.over : messages.under },
+              { value: fmt.int(bucket.count), label: messages.count },
             ]);
           },
         },
@@ -53,7 +55,7 @@ export function BiasChart({ buckets, label }: { buckets: BiasBucket[]; label: st
           ...axis,
           axisLine: { show: false },
           // Los valores se dibujan como desviación respecto a 1; el eje muestra la razón real.
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatDecimal(value + 1, 2) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.decimal(value + 1, 2) },
         },
         series: [
           {
@@ -78,9 +80,9 @@ export function BiasChart({ buckets, label }: { buckets: BiasBucket[]; label: st
         ],
       };
     },
-    [buckets],
+    [buckets, fmt, messages],
   );
 
-  if (buckets.length === 0) return <p className="text-sm text-muted">Sin datos.</p>;
+  if (buckets.length === 0) return <p className="text-sm text-muted">{chart.noData}</p>;
   return <EChart buildOption={buildOption} height={300} label={label} />;
 }

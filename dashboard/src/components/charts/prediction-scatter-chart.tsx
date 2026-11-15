@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatInt, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -14,6 +14,9 @@ export type PredictionPoint = { actual: number; predicted: number; label: string
  * varios órdenes de magnitud). Sobre la diagonal, la predicción acierta; lejos de ella, falla.
  */
 export function PredictionScatterChart({ points, label }: { points: PredictionPoint[]; label: string }) {
+  const fmt = useFormatters();
+  const chart = useChartMessages();
+  const messages = chart.prediction;
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -27,7 +30,7 @@ export function PredictionScatterChart({ points, label }: { points: PredictionPo
         ...axis,
         axisLabel: {
           ...axis.axisLabel,
-          formatter: (value: number) => formatInt(value),
+          formatter: (value: number) => fmt.int(value),
           showMinLabel: false,
           showMaxLabel: false,
         },
@@ -42,20 +45,20 @@ export function PredictionScatterChart({ points, label }: { points: PredictionPo
           formatter: (params: { dataIndex: number }) => {
             const point = points[params.dataIndex];
             return tooltipContent(theme, point.label, [
-              { value: formatUsd(point.predicted), label: "predicho" },
-              { value: formatUsd(point.actual), label: "real" },
+              { value: fmt.usd(point.predicted), label: messages.predicted },
+              { value: fmt.usd(point.actual), label: messages.actual },
             ]);
           },
         },
         xAxis: {
           ...logAxis,
-          name: "Precio real por noche (USD, escala logarítmica)",
+          name: messages.xAxis,
           nameLocation: "middle",
           nameGap: 30,
         },
         yAxis: {
           ...logAxis,
-          name: "Precio predicho (USD)",
+          name: messages.yAxis,
           nameLocation: "end",
           nameTextStyle: { ...axis.nameTextStyle, align: "left" },
           axisLine: { show: false },
@@ -80,9 +83,9 @@ export function PredictionScatterChart({ points, label }: { points: PredictionPo
         ],
       };
     },
-    [points],
+    [points, fmt, messages],
   );
 
-  if (points.length === 0) return <p className="text-sm text-muted">Sin datos.</p>;
+  if (points.length === 0) return <p className="text-sm text-muted">{chart.noData}</p>;
   return <EChart buildOption={buildOption} height={420} label={label} />;
 }

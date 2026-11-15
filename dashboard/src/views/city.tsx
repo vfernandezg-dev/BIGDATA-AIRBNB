@@ -15,16 +15,12 @@ import { DataTable } from "@/components/data-table";
 import { DivergingBars } from "@/components/diverging-bars";
 import { SegmentedBar, type Segment } from "@/components/segmented-bar";
 import { StatTile } from "@/components/stat-tile";
-import {
-  formatDate,
-  formatDecimal,
-  formatInt,
-  formatMonth,
-  formatPercent,
-  formatUsd,
-  monthNames,
-  roomTypeLabel,
-} from "@/lib/format";
+import type { Locale } from "@/i18n/config";
+import { formatters, type Formatters } from "@/i18n/format";
+import { localizeCities, roomTypeLabel } from "@/i18n/labels";
+import { cityMessages, type CityMessages } from "@/i18n/messages/city";
+import { pageAlternates } from "@/i18n/metadata";
+import { pathFor } from "@/i18n/routes";
 import {
   getCities,
   getCityAvailability,
@@ -55,24 +51,27 @@ const ROOM_TYPE_SLOT: Record<string, 0 | 1 | 2 | 3> = {
 };
 const SLOT_TOKEN: Segment["color"][] = ["series-1", "series-2", "series-3", "series-4"];
 
-type CityPageProps = PageProps<"/ciudad/[slug]">;
+/** Los parámetros de la ruta, iguales en los dos idiomas (`/es/ciudad/[slug]` y `/en/city/[slug]`). */
+type CityParams = Promise<{ slug: string }>;
 
 // Con Cache Components, generateStaticParams debe devolver al menos una ruta. Si todavía no hay datos
 // publicados se pre-renderiza esta, que no corresponde a ninguna ciudad y muestra "no encontrada".
 const NO_DATA_SLUG = "sin-datos";
 
-export async function generateStaticParams() {
+export async function cityStaticParams() {
   const cities = await getCities();
   return cities.length > 0 ? cities.map((city) => ({ slug: city.slug })) : [{ slug: NO_DATA_SLUG }];
 }
 
-export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
+export async function cityMetadata(lang: Locale, params: CityParams): Promise<Metadata> {
   const { slug } = await params;
-  const city = (await getCities()).find((candidate) => candidate.slug === slug);
-  if (!city) return { title: "Ciudad no encontrada" };
+  const t = cityMessages[lang];
+  const city = localizeCities(lang, await getCities()).find((candidate) => candidate.slug === slug);
+  if (!city) return { title: t.notFoundTitle };
   return {
     title: city.name,
-    description: `Precios, barrios, tipos de alojamiento y demanda del alquiler turístico en ${city.name} (${city.country}).`,
+    description: t.description(city.name, city.country),
+    alternates: pageAlternates(lang, "city", slug),
   };
 }
 
@@ -92,17 +91,17 @@ function reviewsByYearAndMonth(reviews: MonthlyReviews[]): { years: string[]; ce
  * Las doce ciudades se pre-renderizan al construir el sitio. `params` se lee dentro de <Suspense> porque,
  * cuando la página se regenera tras publicar datos nuevos, Next lo trata como un dato de la petición.
  */
-export default function CityPage({ params }: CityPageProps) {
+export function CityView({ lang, params }: { lang: Locale; params: CityParams }) {
   return (
-    <Suspense fallback={<p className="py-24 text-center text-sm text-muted">Cargando la ciudad…</p>}>
-      <CityContent params={params} />
+    <Suspense fallback={<p className="py-24 text-center text-sm text-muted">{cityMessages[lang].loading}</p>}>
+      <CityContent lang={lang} params={params} />
     </Suspense>
   );
 }
 
-async function CityContent({ params }: Pick<CityPageProps, "params">) {
+async function CityContent({ lang, params }: { lang: Locale; params: CityParams }) {
   const { slug } = await params;
-  const cities = await getCities();
+  const cities = localizeCities(lang, await getCities());
   // La lista de ciudades está en caché: un slug inventado se descarta aquí, sin consultar nada más.
   const city = cities.find((candidate) => candidate.slug === slug);
   if (!city) notFound();
@@ -117,7 +116,9 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
     getHostConcentration(slug),
   ]);
 
-  const months = monthNames();
+  const t = cityMessages[lang];
+  const fmt = formatters(lang);
+  const months = fmt.monthNames();
   const priced = neighbourhoods.filter((item) => item.median_price_usd !== null);
   const mostExpensive = [...priced]
     .sort((a, b) => (b.median_price_usd ?? 0) - (a.median_price_usd ?? 0))
@@ -137,7 +138,7 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
       ? []
       : [
           {
-            label: roomTypeLabel(row.room_type),
+            label: roomTypeLabel(lang, row.room_type),
             p25: row.p25_price_usd,
             median: row.median_price_usd,
             p75: row.p75_price_usd,
@@ -154,7 +155,7 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
 
   return (
     <div className="space-y-8">
-      <nav aria-label="Ciudades" className="text-sm">
+      <nav aria-label={t.citiesNav} className="text-sm">
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {cities.map((candidate) => (
             <li key={candidate.slug}>
@@ -164,7 +165,7 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
                 </span>
               ) : (
                 <Link
-                  href={`/ciudad/${candidate.slug}`}
+                  href={pathFor(lang, "city", candidate.slug)}
                   className="rounded text-ink-2 underline-offset-4 hover:text-ink hover:underline"
                 >
                   {candidate.name}
@@ -178,41 +179,34 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
       <header className="max-w-3xl">
         <p className="text-sm text-ink-2">{city.country}</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">{city.name}</h1>
-        <p className="mt-3 leading-relaxed text-ink-2">
-          Snapshot del {formatDate(city.snapshot_date)}. Los precios se publican en {city.currency ?? "moneda local"} y
-          aquí se muestran en dólares.
-        </p>
+        <p className="mt-3 leading-relaxed text-ink-2">{t.intro(fmt.date(city.snapshot_date), city.currency)}</p>
       </header>
 
-      <section aria-label="Cifras principales" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label={t.kpis.label} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           hero
-          label="Precio mediano por noche"
-          value={formatUsd(city.median_price_usd)}
-          hint={`La mitad central de los anuncios cuesta entre ${formatUsd(city.p25_price_usd)} y ${formatUsd(city.p75_price_usd)}.`}
+          label={t.kpis.medianPrice}
+          value={fmt.usd(city.median_price_usd)}
+          hint={t.kpis.medianPriceHint(fmt.usd(city.p25_price_usd), fmt.usd(city.p75_price_usd))}
         />
         <StatTile
-          label="Anuncios"
-          value={formatInt(city.n_listings)}
-          hint={`${formatInt(city.n_priced)} con precio publicado · ${formatInt(city.n_hosts)} anfitriones.`}
+          label={t.kpis.listings}
+          value={fmt.int(city.n_listings)}
+          hint={t.kpis.listingsHint(fmt.int(city.n_priced), fmt.int(city.n_hosts))}
         />
         <StatTile
-          label="Ocupación estimada"
-          value={formatPercent(city.avg_occupancy_l365d)}
-          hint="Noches reservadas en los últimos 12 meses, estimadas por Inside Airbnb a partir de las reseñas."
+          label={t.kpis.occupancy}
+          value={fmt.percent(city.avg_occupancy_l365d)}
+          hint={t.kpis.occupancyHint}
         />
         <StatTile
-          label="Valoración media"
-          value={formatDecimal(city.avg_rating, 2)}
-          hint={`Sobre 5. ${formatInt(city.n_reviews_ltm)} reseñas en los últimos 12 meses.`}
+          label={t.kpis.rating}
+          value={fmt.decimal(city.avg_rating, 2)}
+          hint={t.kpis.ratingHint(fmt.int(city.n_reviews_ltm))}
         />
       </section>
 
-      <ChartCard
-        title="Dónde están los alojamientos más caros"
-        subtitle="El mapa de calor resalta las zonas donde se concentran los precios por encima de la mediana de la ciudad: cuanto más intenso el color, más caros los alojamientos de esa zona. La vista por celdas muestra el precio mediano de cada cuadrícula de unos 500 metros."
-        footnote="Para acercar el mapa, mantén pulsada la tecla Ctrl mientras desplazas, o usa dos dedos. En la vista por celdas, pasa el cursor por una celda para ver su precio; cada color agrupa una quinta parte de las celdas."
-      >
+      <ChartCard lang={lang} title={t.map.title} subtitle={t.map.subtitle} footnote={t.map.footnote}>
         <CityMap
           cells={cells}
           cellDegrees={MAP_CELL_DEGREES}
@@ -223,108 +217,110 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
-          title="Distribución de precios"
-          subtitle="Número de anuncios por tramo de precio por noche, en dólares."
+          lang={lang}
+          title={t.histogram.title}
+          subtitle={t.histogram.subtitle}
           footnote={
             lastBucket && lastBucket.bucket_to_usd === null
-              ? `El último tramo agrupa todos los anuncios de ${formatUsd(lastBucket.bucket_from_usd)} o más.`
+              ? t.histogram.footnote(fmt.usd(lastBucket.bucket_from_usd))
               : undefined
           }
           table={
             <DataTable
-              caption="Anuncios por tramo de precio"
+              caption={t.histogram.caption}
               rows={histogram}
               rowKey={(row) => String(row.bucket_from_usd)}
               columns={[
                 {
-                  header: "Precio por noche",
+                  header: t.histogram.priceColumn,
                   cell: (row) =>
                     row.bucket_to_usd === null
-                      ? `${formatUsd(row.bucket_from_usd)} o más`
-                      : `${formatUsd(row.bucket_from_usd)} – ${formatInt(row.bucket_to_usd)}`,
+                      ? t.histogram.orMore(fmt.usd(row.bucket_from_usd))
+                      : `${fmt.usd(row.bucket_from_usd)} – ${fmt.int(row.bucket_to_usd)}`,
                 },
-                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
+                { header: t.histogram.listingsColumn, align: "right", cell: (row) => fmt.int(row.n_listings) },
               ]}
             />
           }
         >
           <ColumnChart
             valueFormat="int"
-            valueLabel="anuncios"
-            label="Histograma: número de anuncios por tramo de precio por noche"
+            valueLabel={t.histogram.valueLabel}
+            label={t.histogram.chart}
             data={histogram.map((row) => ({
               tick: row.bucket_to_usd === null ? `${row.bucket_from_usd}+` : String(row.bucket_from_usd),
               label:
                 row.bucket_to_usd === null
-                  ? `${formatUsd(row.bucket_from_usd)} o más`
-                  : `De ${formatUsd(row.bucket_from_usd)} a ${formatInt(row.bucket_to_usd)}`,
+                  ? t.histogram.orMore(fmt.usd(row.bucket_from_usd))
+                  : t.histogram.range(fmt.usd(row.bucket_from_usd), fmt.int(row.bucket_to_usd)),
               value: row.n_listings,
             }))}
           />
         </ChartCard>
 
         <ChartCard
-          title="Qué se alquila y a qué precio"
-          subtitle="Reparto de los anuncios por tipo de alojamiento y, debajo, el rango de precios de cada uno: la barra cubre la mitad central de los anuncios y la marca señala la mediana."
+          lang={lang}
+          title={t.roomTypes.title}
+          subtitle={t.roomTypes.subtitle}
           table={
             <DataTable
-              caption="Tipos de alojamiento"
+              caption={t.roomTypes.caption}
               rows={roomTypes}
               rowKey={(row) => row.room_type}
               columns={[
-                { header: "Tipo", cell: (row) => roomTypeLabel(row.room_type) },
-                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
-                { header: "Cuota", align: "right", cell: (row) => formatPercent(row.listings_share, 1) },
-                { header: "Percentil 25", align: "right", cell: (row) => formatUsd(row.p25_price_usd) },
-                { header: "Mediana", align: "right", cell: (row) => formatUsd(row.median_price_usd) },
-                { header: "Percentil 75", align: "right", cell: (row) => formatUsd(row.p75_price_usd) },
-                { header: "Capacidad media", align: "right", cell: (row) => formatDecimal(row.avg_accommodates) },
+                { header: t.roomTypes.columns.type, cell: (row) => roomTypeLabel(lang, row.room_type) },
+                { header: t.roomTypes.columns.listings, align: "right", cell: (row) => fmt.int(row.n_listings) },
+                { header: t.roomTypes.columns.share, align: "right", cell: (row) => fmt.percent(row.listings_share, 1) },
+                { header: t.roomTypes.columns.p25, align: "right", cell: (row) => fmt.usd(row.p25_price_usd) },
+                { header: t.roomTypes.columns.median, align: "right", cell: (row) => fmt.usd(row.median_price_usd) },
+                { header: t.roomTypes.columns.p75, align: "right", cell: (row) => fmt.usd(row.p75_price_usd) },
+                { header: t.roomTypes.columns.capacity, align: "right", cell: (row) => fmt.decimal(row.avg_accommodates) },
               ]}
             />
           }
         >
           <SegmentedBar
-            unit="anuncios"
+            lang={lang}
+            unit={t.roomTypes.unit}
             segments={roomTypes.map((row) => ({
               key: row.room_type,
-              label: roomTypeLabel(row.room_type),
+              label: roomTypeLabel(lang, row.room_type),
               value: row.n_listings,
               color: SLOT_TOKEN[ROOM_TYPE_SLOT[row.room_type] ?? 3],
             }))}
           />
           <div className="mt-5">
-            <PriceRangeChart
-              ranges={priceRanges}
-              label="Rango de precios por tipo de alojamiento: del percentil 25 al 75, con la mediana"
-            />
+            <PriceRangeChart ranges={priceRanges} label={t.roomTypes.chart} />
           </div>
         </ChartCard>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
-          title="Los barrios más caros"
-          subtitle={`Precio mediano por noche de los ${mostExpensive.length} barrios con el precio más alto.`}
-          table={<NeighbourhoodTable rows={neighbourhoods} />}
+          lang={lang}
+          title={t.topNeighbourhoods.title}
+          subtitle={t.topNeighbourhoods.subtitle(mostExpensive.length)}
+          table={<NeighbourhoodTable rows={neighbourhoods} t={t} fmt={fmt} />}
         >
           <BarList
             rows={mostExpensive.map((item) => ({
               key: item.neighbourhood,
               label: item.neighbourhood,
               value: item.median_price_usd,
-              display: formatUsd(item.median_price_usd),
+              display: fmt.usd(item.median_price_usd),
             }))}
           />
         </ChartCard>
 
         <ChartCard
-          title="Barrios que cobran más o menos de lo esperable"
-          subtitle="Precio real dividido por el que predice el modelo para anuncios con las mismas características. Por encima de 1, el barrio cobra un sobreprecio; por debajo, es más barato de lo que sus alojamientos harían esperar."
+          lang={lang}
+          title={t.priceIndex.title}
+          subtitle={t.priceIndex.subtitle}
           footnote={
             <>
-              Es una lectura del error del modelo, no una tasación. Cómo se calcula:{" "}
-              <Link href="/modelo" className="underline underline-offset-2 hover:text-ink-2">
-                modelo de precios
+              {t.priceIndex.footnote}{" "}
+              <Link href={pathFor(lang, "model")} className="underline underline-offset-2 hover:text-ink-2">
+                {t.priceIndex.modelLink}
               </Link>
               .
             </>
@@ -332,114 +328,116 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
         >
           {indexExtremes.length > 0 ? (
             <DivergingBars
-              lowLabel="Más barato de lo esperable"
-              highLabel="Más caro de lo esperable"
+              lang={lang}
+              lowLabel={t.priceIndex.low}
+              highLabel={t.priceIndex.high}
               rows={indexExtremes.map((item) => ({
                 key: item.neighbourhood,
                 label: item.neighbourhood,
                 deviation: (item.price_index ?? 1) - 1,
-                display: formatDecimal(item.price_index, 2),
+                display: fmt.decimal(item.price_index, 2),
               }))}
             />
           ) : (
-            <p className="text-sm text-muted">El modelo de precios aún no se ha entrenado para esta ciudad.</p>
+            <p className="text-sm text-muted">{t.priceIndex.empty}</p>
           )}
         </ChartCard>
       </section>
 
-      <ChartCard
-        title="Oferta frente a precio, barrio a barrio"
-        subtitle="Cada punto es un barrio: hacia la derecha tiene más anuncios; hacia arriba, es más caro. Arriba a la izquierda quedan los barrios caros con poca oferta; abajo a la derecha, los que tienen mucha oferta y precios bajos."
-        footnote="Se etiquetan los barrios con más anuncios y los más caros; el resto, al pasar el cursor. Las cifras de todos los barrios están en la tabla de «Los barrios más caros»."
-      >
-        <NeighbourhoodScatterChart
-          points={neighbourhoodPoints}
-          label="Dispersión: número de anuncios frente a precio mediano por barrio"
-        />
+      <ChartCard lang={lang} title={t.scatter.title} subtitle={t.scatter.subtitle} footnote={t.scatter.footnote}>
+        <NeighbourhoodScatterChart points={neighbourhoodPoints} label={t.scatter.chart} />
       </ChartCard>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
-          title="Reseñas por mes"
-          subtitle="Cada reseña corresponde a una estancia terminada: su ritmo aproxima la demanda."
+          lang={lang}
+          title={t.reviews.title}
+          subtitle={t.reviews.subtitle}
           table={
             <DataTable
-              caption="Reseñas por mes"
+              caption={t.reviews.caption}
               rows={[...recentReviews].reverse()}
               rowKey={(row) => row.month}
               columns={[
-                { header: "Mes", cell: (row) => formatMonth(row.month) },
-                { header: "Reseñas", align: "right", cell: (row) => formatInt(row.n_reviews) },
+                { header: t.reviews.month, cell: (row) => fmt.month(row.month) },
+                { header: t.reviews.reviews, align: "right", cell: (row) => fmt.int(row.n_reviews) },
               ]}
             />
           }
         >
           <TimeSeriesChart
             data={recentReviews.map((row) => ({ month: row.month, value: row.n_reviews }))}
-            valueLabel="reseñas"
-            label={`Serie temporal: reseñas por mes en ${city.name}`}
+            valueLabel={t.reviews.valueLabel}
+            label={t.reviews.chart(city.name)}
           />
         </ChartCard>
 
         <ChartCard
-          title="Reseñas por año y mes"
-          subtitle="Las mismas reseñas, en rejilla: de arriba abajo se ve el crecimiento de un año a otro; de izquierda a derecha, los meses fuertes y flojos."
-          footnote="Las celdas en blanco son meses sin datos; el último mes con datos está incompleto."
+          lang={lang}
+          title={t.reviewGrid.title}
+          subtitle={t.reviewGrid.subtitle}
+          footnote={t.reviewGrid.footnote}
         >
           <HeatmapChart
             scale="sequential"
             rows={reviewGrid.years}
             columns={months}
             cells={reviewGrid.cells}
-            valueLabel="reseñas"
-            scaleLabels={["Menos reseñas", "Más reseñas"]}
-            label={`Mapa de calor: reseñas por año y mes en ${city.name}`}
+            valueLabel={t.reviewGrid.valueLabel}
+            scaleLabels={t.reviewGrid.scale}
+            label={t.reviewGrid.chart(city.name)}
           />
         </ChartCard>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard
-          title="Disponibilidad en los próximos meses"
-          subtitle="Porcentaje de noches que los calendarios muestran libres. Una noche no disponible puede estar reservada o bloqueada por el anfitrión."
+          lang={lang}
+          title={t.availability.title}
+          subtitle={t.availability.subtitle}
           table={
             <DataTable
-              caption="Disponibilidad por mes"
+              caption={t.availability.caption}
               rows={availability}
               rowKey={(row) => row.month}
               columns={[
-                { header: "Mes", cell: (row) => formatMonth(row.month) },
-                { header: "Noches libres", align: "right", cell: (row) => formatPercent(row.availability_rate, 1) },
-                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
+                { header: t.availability.month, cell: (row) => fmt.month(row.month) },
+                {
+                  header: t.availability.freeNights,
+                  align: "right",
+                  cell: (row) => fmt.percent(row.availability_rate, 1),
+                },
+                { header: t.availability.listings, align: "right", cell: (row) => fmt.int(row.n_listings) },
               ]}
             />
           }
         >
           <ColumnChart
             valueFormat="percent"
-            valueLabel="de noches libres"
+            valueLabel={t.availability.valueLabel}
             fixedMax={1}
-            label="Columnas: porcentaje de noches libres por mes"
+            label={t.availability.chart}
             data={availability.map((row) => ({
-              tick: formatMonth(row.month).split(" ")[0],
-              label: formatMonth(row.month),
+              tick: fmt.month(row.month).split(" ")[0],
+              label: fmt.month(row.month),
               value: row.availability_rate ?? 0,
             }))}
           />
         </ChartCard>
 
         <ChartCard
-          title="Quién ofrece los alojamientos"
-          subtitle="Anuncios según cuántos gestiona su anfitrión en la ciudad. Los tramos altos corresponden a operadores profesionales."
+          lang={lang}
+          title={t.hosts.title}
+          subtitle={t.hosts.subtitle}
           table={
             <DataTable
-              caption="Concentración de anfitriones"
+              caption={t.hosts.caption}
               rows={hosts}
               rowKey={(row) => String(row.bucket_order)}
               columns={[
-                { header: "Anuncios por anfitrión", cell: (row) => row.bucket_label },
-                { header: "Anfitriones", align: "right", cell: (row) => formatInt(row.n_hosts) },
-                { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
+                { header: t.hosts.perHost, cell: (row) => row.bucket_label },
+                { header: t.hosts.hosts, align: "right", cell: (row) => fmt.int(row.n_hosts) },
+                { header: t.hosts.listings, align: "right", cell: (row) => fmt.int(row.n_listings) },
               ]}
             />
           }
@@ -447,9 +445,9 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
           <BarList
             rows={hosts.map((bucket) => ({
               key: String(bucket.bucket_order),
-              label: bucket.bucket_label === "1" ? "1 anuncio" : `${bucket.bucket_label} anuncios`,
+              label: t.hosts.bucket(bucket.bucket_label),
               value: bucket.n_listings,
-              display: `${formatInt(bucket.n_listings)} (${formatPercent(totalHostListings > 0 ? bucket.n_listings / totalHostListings : 0)})`,
+              display: `${fmt.int(bucket.n_listings)} (${fmt.percent(totalHostListings > 0 ? bucket.n_listings / totalHostListings : 0)})`,
             }))}
           />
         </ChartCard>
@@ -458,20 +456,21 @@ async function CityContent({ params }: Pick<CityPageProps, "params">) {
   );
 }
 
-function NeighbourhoodTable({ rows }: { rows: Neighbourhood[] }) {
+function NeighbourhoodTable({ rows, t, fmt }: { rows: Neighbourhood[]; t: CityMessages; fmt: Formatters }) {
+  const columns = t.topNeighbourhoods.columns;
   return (
     <DataTable
-      caption="Barrios"
+      caption={t.topNeighbourhoods.caption}
       rows={rows}
       rowKey={(row) => row.neighbourhood}
       columns={[
-        { header: "Barrio", cell: (row) => row.neighbourhood },
-        { header: "Anuncios", align: "right", cell: (row) => formatInt(row.n_listings) },
-        { header: "Precio mediano", align: "right", cell: (row) => formatUsd(row.median_price_usd) },
-        { header: "Frente a la ciudad", align: "right", cell: (row) => formatDecimal(row.price_vs_city, 2) },
-        { header: "Vivienda completa", align: "right", cell: (row) => formatPercent(row.pct_entire_home) },
-        { header: "Valoración", align: "right", cell: (row) => formatDecimal(row.avg_rating, 2) },
-        { header: "Segmento", align: "right", cell: (row) => (row.segment === null ? "—" : String(row.segment)) },
+        { header: columns.neighbourhood, cell: (row) => row.neighbourhood },
+        { header: columns.listings, align: "right", cell: (row) => fmt.int(row.n_listings) },
+        { header: columns.medianPrice, align: "right", cell: (row) => fmt.usd(row.median_price_usd) },
+        { header: columns.versusCity, align: "right", cell: (row) => fmt.decimal(row.price_vs_city, 2) },
+        { header: columns.entireHome, align: "right", cell: (row) => fmt.percent(row.pct_entire_home) },
+        { header: columns.rating, align: "right", cell: (row) => fmt.decimal(row.avg_rating, 2) },
+        { header: columns.segment, align: "right", cell: (row) => (row.segment === null ? "—" : String(row.segment)) },
       ]}
     />
   );

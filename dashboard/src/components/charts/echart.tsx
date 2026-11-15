@@ -3,6 +3,8 @@
 import type { EChartsCoreOption, EChartsType } from "echarts/core";
 import { useEffect, useRef, useState } from "react";
 
+import { useChartMessages } from "@/i18n/client";
+
 import { readChartTheme, type ChartTheme } from "./chart-theme";
 
 type EChartProps = {
@@ -27,6 +29,7 @@ type EChartProps = {
 export function EChart({ buildOption, height, label, prepare, onItemClick }: EChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
+  const messages = useChartMessages();
 
   useEffect(() => {
     const element = container.current;
@@ -68,7 +71,7 @@ export function EChart({ buildOption, height, label, prepare, onItemClick }: ECh
   if (failed) {
     return (
       <p className="text-sm text-muted" style={{ minHeight: height }}>
-        No se pudo cargar el gráfico. Los datos están en la tabla de esta tarjeta.
+        {messages.loadFailed}
       </p>
     );
   }

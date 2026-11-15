@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatDecimal, formatInt, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -17,6 +17,8 @@ const LABELLED_PER_EXTREME = 4;
  * concentran la mayor parte de la oferta y, en escala lineal, el resto quedaría aplastado contra el origen.
  */
 export function NeighbourhoodScatterChart({ points, label }: { points: NeighbourhoodPoint[]; label: string }) {
+  const fmt = useFormatters();
+  const messages = useChartMessages().neighbourhoods;
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -33,31 +35,31 @@ export function NeighbourhoodScatterChart({ points, label }: { points: Neighbour
           formatter: (params: { dataIndex: number }) => {
             const point = points[params.dataIndex];
             return tooltipContent(theme, point.name, [
-              { value: formatUsd(point.price), label: "precio mediano" },
-              { value: formatInt(point.listings), label: "anuncios" },
-              ...(point.rating === null ? [] : [{ value: formatDecimal(point.rating, 2), label: "valoración" }]),
+              { value: fmt.usd(point.price), label: messages.medianPrice },
+              { value: fmt.int(point.listings), label: messages.listings },
+              ...(point.rating === null ? [] : [{ value: fmt.decimal(point.rating, 2), label: messages.rating }]),
             ]);
           },
         },
         xAxis: {
           type: "log",
           min: Math.max(1, Math.floor(fewestListings * 0.8)),
-          name: "Anuncios en el barrio (escala logarítmica)",
+          name: messages.xAxis,
           nameLocation: "middle",
           nameGap: 30,
           ...axis,
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatInt(value), showMinLabel: false },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.int(value), showMinLabel: false },
         },
         yAxis: {
           type: "value",
           scale: true,
-          name: "Precio mediano (USD)",
+          name: messages.yAxis,
           nameLocation: "end",
           ...axis,
           // Tras `...axis`: el nombre del eje se alinea a la izquierda, sobre las etiquetas.
           nameTextStyle: { ...axis.nameTextStyle, align: "left" },
           axisLine: { show: false },
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatInt(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.int(value) },
         },
         series: [
           {
@@ -76,9 +78,9 @@ export function NeighbourhoodScatterChart({ points, label }: { points: Neighbour
         ],
       };
     },
-    [points],
+    [points, fmt, messages],
   );
 
-  if (points.length < 3) return <p className="text-sm text-muted">No hay suficientes barrios con precio.</p>;
+  if (points.length < 3) return <p className="text-sm text-muted">{messages.empty}</p>;
   return <EChart buildOption={buildOption} height={360} label={label} />;
 }

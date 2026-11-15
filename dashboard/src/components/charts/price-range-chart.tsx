@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatInt, formatUsd } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -24,6 +24,8 @@ const CHROME_HEIGHT = 44;
  * marca en la mediana. Deja ver de un vistazo cuánto se solapan los precios entre categorías.
  */
 export function PriceRangeChart({ ranges, label }: { ranges: PriceRange[]; label: string }) {
+  const fmt = useFormatters();
+  const messages = useChartMessages().priceRange;
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -37,8 +39,8 @@ export function PriceRangeChart({ ranges, label }: { ranges: PriceRange[]; label
           formatter: (params: { dataIndex: number }[]) => {
             const range = ranges[params[0].dataIndex];
             return tooltipContent(theme, range.label, [
-              { value: formatUsd(range.median), label: "precio mediano" },
-              { value: `${formatUsd(range.p25)} – ${formatInt(range.p75)}`, label: "mitad central" },
+              { value: fmt.usd(range.median), label: messages.medianPrice },
+              { value: `${fmt.usd(range.p25)} – ${fmt.int(range.p75)}`, label: messages.middleHalf },
             ]);
           },
         },
@@ -46,7 +48,7 @@ export function PriceRangeChart({ ranges, label }: { ranges: PriceRange[]; label
           type: "value",
           ...axis,
           axisLine: { show: false },
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatInt(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.int(value) },
         },
         yAxis: {
           type: "category",
@@ -88,9 +90,9 @@ export function PriceRangeChart({ ranges, label }: { ranges: PriceRange[]; label
         ],
       };
     },
-    [ranges],
+    [ranges, fmt, messages],
   );
 
-  if (ranges.length === 0) return <p className="text-sm text-muted">Sin precios publicados.</p>;
+  if (ranges.length === 0) return <p className="text-sm text-muted">{messages.empty}</p>;
   return <EChart buildOption={buildOption} height={ranges.length * ROW_HEIGHT + CHROME_HEIGHT} label={label} />;
 }

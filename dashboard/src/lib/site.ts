@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/config";
+
 /** Datos del sitio que se repiten en el pie y en las páginas legales: un solo lugar donde cambiarlos. */
 export const SITE = {
   name: "BigData Airbnb",
@@ -18,6 +20,16 @@ export const SOURCE = {
   dataUrl: "https://insideairbnb.com/get-the-data/",
   policiesUrl: "https://insideairbnb.com/data-policies/",
   publisher: "Housing Justice Data Lab",
-  licenseName: "Creative Commons Atribución 4.0 Internacional (CC BY 4.0)",
-  licenseUrl: "https://creativecommons.org/licenses/by/4.0/deed.es",
 } as const;
+
+/** Licencia de los datos, con su nombre oficial y su resumen en cada idioma. */
+export const SOURCE_LICENSE: Record<Locale, { name: string; url: string }> = {
+  es: {
+    name: "Creative Commons Atribución 4.0 Internacional (CC BY 4.0)",
+    url: "https://creativecommons.org/licenses/by/4.0/deed.es",
+  },
+  en: {
+    name: "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+    url: "https://creativecommons.org/licenses/by/4.0/deed.en",
+  },
+};

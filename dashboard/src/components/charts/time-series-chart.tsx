@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatCompact, formatInt, formatMonth } from "@/lib/format";
+import { useChartMessages, useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -18,6 +18,8 @@ type TimeSeriesChartProps = {
 
 /** Serie mensual: una línea con relleno tenue y una guía vertical que sigue al puntero. */
 export function TimeSeriesChart({ data, valueLabel, label }: TimeSeriesChartProps) {
+  const fmt = useFormatters();
+  const messages = useChartMessages();
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
@@ -30,8 +32,8 @@ export function TimeSeriesChart({ data, valueLabel, label }: TimeSeriesChartProp
           axisPointer: { type: "line", lineStyle: { color: theme.axis, type: "solid", width: 1 } },
           formatter: (params: { dataIndex: number }[]) => {
             const point = data[params[0].dataIndex];
-            return tooltipContent(theme, formatMonth(point.month), [
-              { value: formatInt(point.value), label: valueLabel },
+            return tooltipContent(theme, fmt.month(point.month), [
+              { value: fmt.int(point.value), label: valueLabel },
             ]);
           },
         },
@@ -53,7 +55,7 @@ export function TimeSeriesChart({ data, valueLabel, label }: TimeSeriesChartProp
           type: "value",
           ...axis,
           axisLine: { show: false },
-          axisLabel: { ...axis.axisLabel, formatter: (value: number) => formatCompact(value) },
+          axisLabel: { ...axis.axisLabel, formatter: (value: number) => fmt.compact(value) },
         },
         series: [
           {
@@ -69,9 +71,9 @@ export function TimeSeriesChart({ data, valueLabel, label }: TimeSeriesChartProp
         ],
       };
     },
-    [data, valueLabel],
+    [data, valueLabel, fmt],
   );
 
-  if (data.length < 2) return <p className="text-sm text-muted">No hay suficientes datos para una serie.</p>;
+  if (data.length < 2) return <p className="text-sm text-muted">{messages.timeSeries.notEnough}</p>;
   return <EChart buildOption={buildOption} height={280} label={label} />;
 }

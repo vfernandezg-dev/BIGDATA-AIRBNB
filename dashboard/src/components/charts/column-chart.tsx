@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-import { formatCompact, formatInt, formatPercent } from "@/lib/format";
+import { useFormatters } from "@/i18n/client";
 
 import { axisStyle, baseOption, gridBox, tooltipContent, tooltipStyle, type ChartTheme } from "./chart-theme";
 import { EChart } from "./echart";
@@ -26,11 +26,12 @@ type ColumnChartProps = {
 
 /** Columnas de un solo color: finas, con el extremo redondeado y apoyadas en el eje. */
 export function ColumnChart({ data, valueFormat, valueLabel, fixedMax, label }: ColumnChartProps) {
+  const fmt = useFormatters();
   const buildOption = useCallback(
     (theme: ChartTheme) => {
       const axis = axisStyle(theme);
       const format = (value: number, compact = false) =>
-        valueFormat === "percent" ? formatPercent(value) : compact ? formatCompact(value) : formatInt(value);
+        valueFormat === "percent" ? fmt.percent(value) : compact ? fmt.compact(value) : fmt.int(value);
       return {
         ...baseOption(theme),
         grid: gridBox(),
@@ -69,7 +70,7 @@ export function ColumnChart({ data, valueFormat, valueLabel, fixedMax, label }: 
         ],
       };
     },
-    [data, valueFormat, valueLabel, fixedMax],
+    [data, valueFormat, valueLabel, fixedMax, fmt],
   );
 
   return <EChart buildOption={buildOption} height={260} label={label} />;

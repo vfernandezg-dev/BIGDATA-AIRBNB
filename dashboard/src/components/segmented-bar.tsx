@@ -1,4 +1,6 @@
-import { formatInt, formatPercent } from "@/lib/format";
+import type { Locale } from "@/i18n/config";
+import { formatters } from "@/i18n/format";
+import { commonMessages } from "@/i18n/messages/common";
 
 export type Segment = {
   key: string;
@@ -28,29 +30,31 @@ const MIN_SHARE_FOR_INLINE_LABEL = 0.09;
  * Barra segmentada alta: un total repartido en pocas partes, para leerlo de un vistazo.
  * Cada bloque lleva su cuota donde cabe; la leyenda nombra las partes en el mismo orden.
  */
-export function SegmentedBar({ segments, unit }: { segments: Segment[]; unit: string }) {
+export function SegmentedBar({ lang, segments, unit }: { lang: Locale; segments: Segment[]; unit: string }) {
+  const fmt = formatters(lang);
+  const messages = commonMessages[lang];
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
   const visible = segments.filter((segment) => segment.value > 0);
-  if (total <= 0) return <p className="text-sm text-muted">Sin datos.</p>;
+  if (total <= 0) return <p className="text-sm text-muted">{messages.noData}</p>;
 
   const summary = visible
-    .map((segment) => `${segment.label}: ${formatPercent(segment.value / total, 1)}`)
+    .map((segment) => `${segment.label}: ${fmt.percent(segment.value / total, 1)}`)
     .join("; ");
 
   return (
     <div>
-      <div role="img" aria-label={`Reparto por tipo. ${summary}`} className="flex h-7 w-full gap-[2px]">
+      <div role="img" aria-label={`${messages.breakdownByType} ${summary}`} className="flex h-7 w-full gap-[2px]">
         {visible.map((segment) => {
           const share = segment.value / total;
           return (
             <div
               key={segment.key}
-              title={`${segment.label}: ${formatInt(segment.value)} ${unit} (${formatPercent(share, 1)})`}
+              title={`${segment.label}: ${fmt.int(segment.value)} ${unit} (${fmt.percent(share, 1)})`}
               className={`flex min-w-[3px] items-center rounded-[4px] ${FILL[segment.color]}`}
               style={{ flexGrow: segment.value, flexBasis: 0 }}
             >
               {share >= MIN_SHARE_FOR_INLINE_LABEL ? (
-                <span className={`px-2 text-xs font-medium ${INK[segment.color]}`}>{formatPercent(share)}</span>
+                <span className={`px-2 text-xs font-medium ${INK[segment.color]}`}>{fmt.percent(share)}</span>
               ) : null}
             </div>
           );
@@ -64,7 +68,7 @@ export function SegmentedBar({ segments, unit }: { segments: Segment[]; unit: st
               <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-sm ${FILL[segment.color]}`} />
               {segment.label}
               {share < MIN_SHARE_FOR_INLINE_LABEL ? (
-                <span className="tabular text-muted">{formatPercent(share, 1)}</span>
+                <span className="tabular text-muted">{fmt.percent(share, 1)}</span>
               ) : null}
             </li>
           );

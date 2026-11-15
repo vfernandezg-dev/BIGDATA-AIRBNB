@@ -1,3 +1,6 @@
+import type { Locale } from "@/i18n/config";
+import { commonMessages } from "@/i18n/messages/common";
+
 export type DivergingRow = {
   key: string;
   label: string;
@@ -7,6 +10,7 @@ export type DivergingRow = {
 };
 
 type DivergingBarsProps = {
+  lang: Locale;
   rows: DivergingRow[];
   lowLabel: string;
   highLabel: string;
@@ -16,9 +20,9 @@ type DivergingBarsProps = {
  * Barras divergentes: valores por encima y por debajo de un punto neutro.
  * Dos tonos opuestos (frío y cálido) y un eje central; el signo también se lee en la cifra.
  */
-export function DivergingBars({ rows, lowLabel, highLabel }: DivergingBarsProps) {
+export function DivergingBars({ lang, rows, lowLabel, highLabel }: DivergingBarsProps) {
   const maxDeviation = Math.max(...rows.map((row) => Math.abs(row.deviation)), 0);
-  if (rows.length === 0 || maxDeviation === 0) return <p className="text-sm text-muted">Sin datos.</p>;
+  if (rows.length === 0 || maxDeviation === 0) return <p className="text-sm text-muted">{commonMessages[lang].noData}</p>;
 
   return (
     <div>
