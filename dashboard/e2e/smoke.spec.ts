@@ -84,6 +84,10 @@ test("páginas legales: fuentes y licencias, y términos de uso", async ({ page 
   await expect(page.getByRole("heading", { level: 1, name: "Fuentes y licencias" })).toBeVisible();
   // Cada ciudad lleva la cita que pide la fuente: proveedor, lugar y fecha de recogida.
   await expect(page.getByRole("table", { name: /fecha de recogida/ })).toContainText("Fuente: Inside Airbnb, Santiago");
+  await expect(page.getByRole("link", { name: "licencia MIT" })).toHaveAttribute(
+    "href",
+    "https://github.com/vfernandezg-dev/airbnb-market-analytics/blob/main/LICENSE",
+  );
   await screenshot(page, "licencias");
 
   await page.getByRole("contentinfo").getByRole("link", { name: "Términos de uso" }).click();

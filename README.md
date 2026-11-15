@@ -6,6 +6,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![ECharts](https://img.shields.io/badge/Apache%20ECharts-6-AA344D?logo=apacheecharts&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+[![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-green)](LICENSE)
 
 Pipeline batch que descarga los datos abiertos de [Inside Airbnb](https://insideairbnb.com/get-the-data/),
 los procesa con **Apache Spark sobre HDFS** en capas Bronze, Silver y Gold, entrena un modelo de precios y
@@ -320,5 +321,13 @@ En cumplimiento de esa licencia y de las
   anfitriones ni texto de reseñas.
 - **Sin respaldo.** Citar la fuente no implica que Inside Airbnb avale estos resultados.
 
-Este proyecto es independiente y no está afiliado a Airbnb, Inc. ni a Inside Airbnb. El repositorio no
-incluye por ahora una licencia de código abierto.
+Este proyecto es independiente y no está afiliado a Airbnb, Inc. ni a Inside Airbnb.
+
+### Licencia del código
+
+El código de este repositorio se publica bajo la [licencia MIT](LICENSE): puedes usarlo, modificarlo y
+redistribuirlo, también con fines comerciales, conservando el aviso de autoría y de licencia. Incluye la
+versión original de [`legacy/`](legacy/), cuyos autores figuran en su README.
+
+La licencia cubre el código, no los datos: los de Inside Airbnb tienen la suya (CC BY 4.0, descrita arriba)
+y no forman parte del repositorio. Las bibliotecas que usa el proyecto conservan sus propias licencias.

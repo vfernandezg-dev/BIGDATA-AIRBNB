@@ -8,6 +8,8 @@ export const SITE = {
     url: "https://vfernandezg.dev",
   },
   repository: "https://github.com/vfernandezg-dev/airbnb-market-analytics",
+  /** Licencia del código (la de los datos está en SOURCE_LICENSE). */
+  codeLicense: "https://github.com/vfernandezg-dev/airbnb-market-analytics/blob/main/LICENSE",
   /** Vía de contacto pública: una incidencia en el repositorio. */
   contact: "https://github.com/vfernandezg-dev/airbnb-market-analytics/issues",
   /** Fecha de la última revisión de los términos y de la página de licencias (AAAA-MM-DD). */

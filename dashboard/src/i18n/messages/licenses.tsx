@@ -162,9 +162,10 @@ const es: LicensesMessages = {
     ),
     code: (
       <>
-        <Term>Código.</Term> Está publicado en <ExternalLink href={SITE.repository}>GitHub</ExternalLink> para su
-        consulta. El repositorio no incluye por ahora una licencia de código abierto: si quieres reutilizarlo,{" "}
-        <ExternalLink href={SITE.contact}>escríbeme</ExternalLink>.
+        <Term>Código.</Term> Está publicado en <ExternalLink href={SITE.repository}>GitHub</ExternalLink> bajo la{" "}
+        <ExternalLink href={SITE.codeLicense}>licencia MIT</ExternalLink>: puedes usarlo, modificarlo y
+        redistribuirlo, también con fines comerciales, conservando el aviso de autoría y de licencia. Esa licencia
+        cubre el código, no los datos de {SOURCE.name}, que tienen la suya.
       </>
     ),
   },
@@ -296,9 +297,10 @@ const en: LicensesMessages = {
     ),
     code: (
       <>
-        <Term>Code.</Term> It is published on <ExternalLink href={SITE.repository}>GitHub</ExternalLink> for
-        reference. The repository does not include an open-source license for now: if you would like to reuse it,{" "}
-        <ExternalLink href={SITE.contact}>get in touch</ExternalLink>.
+        <Term>Code.</Term> It is published on <ExternalLink href={SITE.repository}>GitHub</ExternalLink> under the{" "}
+        <ExternalLink href={SITE.codeLicense}>MIT License</ExternalLink>: you may use, modify and redistribute it,
+        including for commercial purposes, as long as you keep the copyright and license notice. That license
+        covers the code, not the {SOURCE.name} data, which has its own.
       </>
     ),
   },
