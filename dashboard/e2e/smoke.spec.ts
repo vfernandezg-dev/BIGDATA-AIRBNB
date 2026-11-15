@@ -34,15 +34,48 @@ test("panorama: cifras, gráficos y enlaces a las ciudades", async ({ page }) =>
   await expect(page.getByRole("heading", { level: 1 })).toContainText("El alquiler turístico en");
   await expect(page.getByText("Anuncios analizados")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Precio mediano por noche" })).toBeVisible();
+  await expectChart(page, /Mapamundi: precio mediano por noche/);
   await expectChart(page, /Burbujas: precio mediano frente a ocupación/);
   await expectChart(page, /Mapa de calor: desviación mensual/);
   await expectChart(page, /Serie temporal: reseñas por mes/);
   await expectChart(page, /Barras apiladas: reparto de los anuncios/);
   await expect(page.getByRole("table", { name: "Indicadores por ciudad" }).getByRole("row")).not.toHaveCount(0);
+  await expect(page.getByRole("contentinfo")).toContainText("Desarrollado por Valentin Fernandez");
 
   // Las animaciones de entrada terminan antes de la captura.
   await page.waitForTimeout(800);
   await screenshot(page, "panorama");
+  expect(errors).toEqual([]);
+});
+
+test("panorama: el mapamundi cambia de encuadre", async ({ page }) => {
+  await page.goto("/");
+  const chart = await expectChart(page, /Mapamundi: precio mediano por noche/);
+
+  const world = page.getByRole("button", { name: "Mundo" });
+  const europe = page.getByRole("button", { name: "Europa" });
+  await expect(world).toHaveAttribute("aria-pressed", "true");
+  await europe.click();
+  await expect(europe).toHaveAttribute("aria-pressed", "true");
+  await expect(chart.locator("canvas").first()).toBeVisible();
+
+  await page.waitForTimeout(800);
+  await chart.screenshot({ path: test.info().outputPath("mapamundi-europa.png") });
+});
+
+test("páginas legales: fuentes y licencias, y términos de uso", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/licencias");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Fuentes y licencias" })).toBeVisible();
+  // Cada ciudad lleva la cita que pide la fuente: proveedor, lugar y fecha de recogida.
+  await expect(page.getByRole("table", { name: /fecha de recogida/ })).toContainText("Fuente: Inside Airbnb, Santiago");
+  await screenshot(page, "licencias");
+
+  await page.getByRole("contentinfo").getByRole("link", { name: "Términos de uso" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Términos y condiciones de uso" })).toBeVisible();
+  await expect(page.getByText("Sin cookies ni seguimiento.")).toBeVisible();
+  await screenshot(page, "terminos");
   expect(errors).toEqual([]);
 });
 

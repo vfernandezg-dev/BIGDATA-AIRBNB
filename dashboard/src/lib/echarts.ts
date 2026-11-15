@@ -7,6 +7,7 @@
  */
 import { BarChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
 import {
+  GeoComponent,
   GridComponent,
   MarkLineComponent,
   TooltipComponent,
@@ -21,6 +22,7 @@ echarts.use([
   HeatmapChart,
   LineChart,
   ScatterChart,
+  GeoComponent,
   GridComponent,
   MarkLineComponent,
   TooltipComponent,

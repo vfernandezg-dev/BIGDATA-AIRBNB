@@ -21,7 +21,7 @@ pnpm dev          # http://localhost:3000, con recarga en caliente
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | Genera los tipos de las rutas y ejecuta `tsc` |
 | `pnpm e2e` | Pruebas de humo con Playwright (requiere `pnpm build` y, la primera vez, `pnpm exec playwright install chromium`) |
-| `E2E_BASE_URL=<url> pnpm e2e --project=escritorio` | Las mismas pruebas contra un sitio ya desplegado. Un perfil cada vez: la batería completa supera el límite de peticiones por IP del firewall de producción |
+| `E2E_BASE_URL=<url> pnpm e2e` | Las mismas pruebas contra un sitio ya desplegado, sin arrancar nada en local |
 
 ## Cómo está hecho
 
@@ -34,6 +34,10 @@ pnpm dev          # http://localhost:3000, con recarga en caliente
   `chart-theme.ts` traduce los colores del sitio, definidos como variables CSS, a opciones de ECharts.
 - **`src/lib/echarts.ts`** registra solo los módulos de ECharts que se usan y se carga con `import()`: la
   librería no entra en el JavaScript inicial de ninguna página.
+- **`src/lib/world-map.ts`** registra en ECharts los contornos de los países (Natural Earth, a través del
+  paquete `world-atlas`) para el mapamundi del panorama; solo lo descarga esa página.
+- **`src/lib/site.ts`** reúne la autoría, el repositorio y los datos de la fuente que usan el pie y las
+  páginas legales (`/licencias` y `/terminos`).
 - **`src/components/`** conserva en HTML los gráficos que no necesitan lienzo (barras ordenadas, barra
   segmentada y barras divergentes) y el mapa (`city-map.tsx`, MapLibre GL sobre el mapa base de
   OpenFreeMap), con dos vistas: mapa de calor de precios y precio por celda.

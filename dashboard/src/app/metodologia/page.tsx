@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { DataTable } from "@/components/data-table";
 import { datasetLabel, formatDate, formatInt, formatPercent } from "@/lib/format";
 import { getCities, getListingQuality, getPublication, getStageCounts } from "@/lib/queries";
+import { SOURCE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Metodología",
@@ -173,23 +176,27 @@ export default async function MethodologyPage() {
         </h2>
         <p>
           Los datos proceden de{" "}
-          <a href="https://insideairbnb.com/get-the-data/" className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
-            Inside Airbnb
+          <a href={SOURCE.dataUrl} className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
+            {SOURCE.name}
+          </a>{" "}
+          y se usan bajo la licencia{" "}
+          <a href={SOURCE.licenseUrl} className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
+            {SOURCE.licenseName}
           </a>
-          , un proyecto independiente que recopila información pública de los anuncios, y se usan bajo la
-          licencia{" "}
-          <a href="https://creativecommons.org/licenses/by/4.0/deed.es" className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
-            Creative Commons Atribución 4.0 Internacional
-          </a>
-          . Este sitio no publica nombres de anfitriones ni el texto de las reseñas.
+          . Este sitio publica una elaboración propia a partir de ellos, no los datos originales, y no muestra
+          nombres de anfitriones ni el texto de las reseñas.
         </p>
         <p>
-          Es un proyecto académico independiente. No está afiliado a Airbnb, Inc. ni a Inside Airbnb, ni cuenta
-          con su respaldo. El mapa base es de{" "}
-          <a href="https://openfreemap.org/" className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
-            OpenFreeMap
-          </a>{" "}
-          con datos de OpenStreetMap.
+          La cita de cada ciudad, los cambios aplicados a los datos y las licencias de los mapas y del software
+          están en{" "}
+          <Link href="/licencias" className="underline underline-offset-2 hover:text-ink">
+            fuentes y licencias
+          </Link>
+          ; las condiciones de uso del sitio, en los{" "}
+          <Link href="/terminos" className="underline underline-offset-2 hover:text-ink">
+            términos de uso
+          </Link>
+          .
         </p>
       </section>
     </div>

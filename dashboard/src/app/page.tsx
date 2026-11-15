@@ -6,6 +6,7 @@ import { CityBubbleChart } from "@/components/charts/city-bubble-chart";
 import { HeatmapChart, type HeatmapCell } from "@/components/charts/heatmap-chart";
 import { StackedShareChart } from "@/components/charts/stacked-share-chart";
 import { TimeSeriesChart } from "@/components/charts/time-series-chart";
+import { WorldMapChart } from "@/components/charts/world-map-chart";
 import { DataTable } from "@/components/data-table";
 import { StatTile } from "@/components/stat-tile";
 import {
@@ -140,6 +141,46 @@ export default async function OverviewPage() {
           hint="La mejor señal pública de cuánto se reserva."
         />
       </section>
+
+      <ChartCard
+        title="Las ciudades en el mapa"
+        subtitle="Cada burbuja es una ciudad: el color indica su precio mediano por noche y el tamaño, el número de anuncios. Pulsa una ciudad para abrir su página, o cambia el encuadre para acercarte."
+        footnote="El área de la burbuja es proporcional al número de anuncios. Precios en dólares."
+        table={
+          <DataTable
+            caption="Ciudades, con su precio mediano y su número de anuncios"
+            rows={byPrice}
+            rowKey={(city) => city.slug}
+            columns={[
+              {
+                header: "Ciudad",
+                cell: (city) => (
+                  <Link href={`/ciudad/${city.slug}`} className="rounded underline underline-offset-2 hover:text-ink">
+                    {city.name}
+                  </Link>
+                ),
+              },
+              { header: "País", cell: (city) => city.country },
+              { header: "Precio mediano", align: "right", cell: (city) => formatUsd(city.median_price_usd) },
+              { header: "Anuncios", align: "right", cell: (city) => formatInt(city.n_listings) },
+            ]}
+          />
+        }
+      >
+        <WorldMapChart
+          label="Mapamundi: precio mediano por noche y número de anuncios de cada ciudad"
+          cities={cities.map((city) => ({
+            slug: city.slug,
+            name: city.name,
+            country: city.country,
+            lat: city.center_lat,
+            lon: city.center_lon,
+            price: city.median_price_usd,
+            listings: city.n_listings,
+            occupancy: city.avg_occupancy_l365d,
+          }))}
+        />
+      </ChartCard>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ChartCard

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { formatDate } from "@/lib/format";
 import { getPublication } from "@/lib/queries";
+import { SITE, SOURCE } from "@/lib/site";
 
 import "./globals.css";
 
@@ -61,25 +62,53 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </main>
 
         <footer className="border-t border-hairline bg-surface">
-          <div className="mx-auto w-full max-w-6xl space-y-2 px-5 py-6 text-xs leading-relaxed text-ink-2">
+          <div className="mx-auto w-full max-w-6xl space-y-3 px-5 py-6 text-xs leading-relaxed text-ink-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+              <p className="text-sm text-ink">
+                Desarrollado por{" "}
+                <a
+                  href={SITE.author.url}
+                  rel="noreferrer"
+                  className="font-semibold underline underline-offset-2 hover:text-ink-2"
+                >
+                  {SITE.author.name}
+                </a>
+              </p>
+              <nav aria-label="Información legal">
+                <ul className="flex flex-wrap gap-x-5 gap-y-1">
+                  <li>
+                    <Link href="/licencias" className="underline-offset-4 hover:text-ink hover:underline">
+                      Fuentes y licencias
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/terminos" className="underline-offset-4 hover:text-ink hover:underline">
+                      Términos de uso
+                    </Link>
+                  </li>
+                  <li>
+                    <a
+                      href={SITE.repository}
+                      rel="noreferrer"
+                      className="underline-offset-4 hover:text-ink hover:underline"
+                    >
+                      Código en GitHub
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
             <p>
-              Datos:{" "}
-              <a
-                href="https://insideairbnb.com/get-the-data/"
-                className="underline underline-offset-2 hover:text-ink"
-                rel="noreferrer"
-              >
-                Inside Airbnb
+              Datos de{" "}
+              <a href={SOURCE.url} className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
+                {SOURCE.name}
+              </a>{" "}
+              (
+              <a href={SOURCE.licenseUrl} className="underline underline-offset-2 hover:text-ink" rel="noreferrer">
+                CC BY 4.0
               </a>
-              , bajo licencia{" "}
-              <a
-                href="https://creativecommons.org/licenses/by/4.0/deed.es"
-                className="underline underline-offset-2 hover:text-ink"
-                rel="noreferrer"
-              >
-                Creative Commons Atribución 4.0
-              </a>
-              . Proyecto académico independiente, sin relación con Airbnb, Inc.
+              ), limpiados, convertidos a dólares y agregados por este proyecto. Sitio independiente y sin
+              ánimo de lucro: no está afiliado a Airbnb, Inc. ni a {SOURCE.name}, ni cuenta con su respaldo.
             </p>
             {publication ? (
               <p className="text-muted">

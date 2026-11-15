@@ -16,6 +16,7 @@ const percentOneDecimal = new Intl.NumberFormat(LOCALE, {
 });
 const monthYear = new Intl.DateTimeFormat(LOCALE, { month: "short", year: "numeric", timeZone: "UTC" });
 const longDate = new Intl.DateTimeFormat(LOCALE, { dateStyle: "long", timeZone: "UTC" });
+const longMonthYear = new Intl.DateTimeFormat(LOCALE, { month: "long", year: "numeric", timeZone: "UTC" });
 
 const MISSING = "—";
 
@@ -66,6 +67,11 @@ export function monthNames(): string[] {
 /** `2026-09-01` -> `sept 2026`. */
 export function formatMonth(isoDate: string): string {
   return monthYear.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`));
+}
+
+/** `2026-09-23` -> `septiembre de 2026`. */
+export function formatMonthLong(isoDate: string): string {
+  return longMonthYear.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`));
 }
 
 export function formatDate(isoDate: string): string {

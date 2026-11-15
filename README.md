@@ -202,22 +202,24 @@ pnpm install
 pnpm build && pnpm start        # http://localhost:3000
 ```
 
-Los gráficos usan [Apache ECharts](https://echarts.apache.org/) (mapas de calor de estacionalidad,
-burbujas, barras apiladas, rangos de precio) y el mapa, MapLibre GL, con una vista de mapa de calor de
-precios y otra de precio por celda.
+Los gráficos usan [Apache ECharts](https://echarts.apache.org/) (mapamundi interactivo, mapas de calor
+de estacionalidad, burbujas, barras apiladas, rangos de precio) y el mapa de cada ciudad, MapLibre GL, con
+una vista de mapa de calor de precios y otra de precio por celda. El sitio incluye además sus páginas de
+[fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/licencias) y de
+[términos de uso](https://bigdata-airbnb.vfernandezg.dev/terminos).
 
 Las páginas se pre-renderizan a partir de los marts y se sirven desde caché: una visita normal no ejecuta
 ninguna consulta. Al terminar de publicar, el pipeline llama a `POST /api/revalidate` y las páginas se
 regeneran en la siguiente visita. El sitio se conecta con un rol de solo lectura.
 
 `pnpm e2e` ejecuta las pruebas de humo con Playwright en escritorio, modo oscuro y móvil (la primera vez,
-`pnpm exec playwright install chromium`). Con `E2E_BASE_URL` se ejecutan contra un sitio ya desplegado.
-Contra producción conviene lanzar un perfil cada vez: el firewall admite 300 peticiones por minuto y por
-IP, y la batería completa en paralelo lo supera y recibe respuestas 429.
+`pnpm exec playwright install chromium`). Con `E2E_BASE_URL` se ejecutan contra un sitio ya desplegado:
 
 ```bash
-E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e --project=escritorio
+E2E_BASE_URL=https://bigdata-airbnb.vfernandezg.dev pnpm e2e
 ```
+
+El firewall de producción admite 1.200 peticiones por minuto y por IP; la batería completa hace unas 600.
 
 ## Publicar en producción
 
@@ -289,12 +291,26 @@ El código anterior se conserva en [`legacy/`](legacy/).
 | `El catálogo no publica: ...` | La ruta de la ciudad en `cities.yaml` no coincide con la de la fuente. Compárala con `python3 -m airbnb_lake catalog` |
 | En Git Bash, `hdfs dfs -ls /lake` falla con `No FileSystem for scheme "C"` | Git Bash convierte las rutas. Antepón `MSYS_NO_PATHCONV=1` o usa PowerShell |
 
-## Datos y créditos
+## Autoría, datos y licencias
 
-Los datos son de [Inside Airbnb](https://insideairbnb.com/), bajo licencia
-[Creative Commons Atribución 4.0](https://creativecommons.org/licenses/by/4.0/deed.es). El dashboard no
-publica nombres de anfitriones ni el texto de las reseñas. Este proyecto no está afiliado a Airbnb, Inc.
-ni a Inside Airbnb.
+Desarrollado por [Valentin Fernandez](https://github.com/vfernandezg-dev). El proyecto nació como trabajo
+en equipo del curso de Big Data de la Universidad Privada Antenor Orrego; esa primera versión y su autoría
+están en [`legacy/version_1/`](legacy/version_1/README.md).
 
-Nació como trabajo del curso de Big Data de la Universidad Privada Antenor Orrego; la primera versión y
-su autoría están en [`legacy/version_1/`](legacy/version_1/README.md).
+Los datos proceden de [Inside Airbnb](https://insideairbnb.com/) (Housing Justice Data Lab) y se usan bajo
+la licencia [Creative Commons Atribución 4.0 Internacional](https://creativecommons.org/licenses/by/4.0/deed.es).
+En cumplimiento de esa licencia y de las
+[políticas de uso de datos](https://insideairbnb.com/data-policies/) de la fuente:
+
+- **Atribución.** Cada ciudad se cita con su proveedor, lugar y fecha de recogida (por ejemplo, «Fuente:
+  Inside Airbnb, Santiago, septiembre de 2026»). La lista completa está en la página de
+  [fuentes y licencias](https://bigdata-airbnb.vfernandezg.dev/licencias) del sitio.
+- **Modificaciones.** Los datos se limpian, se convierten a dólares con un tipo de cambio fijo y se
+  agregan; las cifras publicadas son una elaboración propia.
+- **Sin redistribución.** Ni el repositorio ni el sitio contienen los datos originales: el pipeline los
+  descarga de la fuente, una sola vez por snapshot, y el sitio solo publica agregados, sin nombres de
+  anfitriones ni texto de reseñas.
+- **Sin respaldo.** Citar la fuente no implica que Inside Airbnb avale estos resultados.
+
+Este proyecto es independiente y no está afiliado a Airbnb, Inc. ni a Inside Airbnb. El repositorio no
+incluye por ahora una licencia de código abierto.

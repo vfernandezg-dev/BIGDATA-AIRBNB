@@ -14,13 +14,17 @@ type EChartProps = {
   height: number;
   /** Qué muestra el gráfico, para lectores de pantalla. Los datos exactos están en la tabla de la tarjeta. */
   label: string;
+  /** Carga algo que el gráfico necesita antes de dibujarse (por ejemplo, la geometría de un mapa). */
+  prepare?: () => Promise<void>;
+  /** Se llama al pulsar un dato, con su posición en la serie. Debe ser estable entre renders. */
+  onItemClick?: (dataIndex: number) => void;
 };
 
 /**
  * Lienzo de ECharts: carga la librería bajo demanda, se adapta al ancho de su contenedor y se redibuja
  * cuando el sistema cambia entre modo claro y oscuro.
  */
-export function EChart({ buildOption, height, label }: EChartProps) {
+export function EChart({ buildOption, height, label, prepare, onItemClick }: EChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
@@ -32,17 +36,26 @@ export function EChart({ buildOption, height, label }: EChartProps) {
     let cancelled = false;
     const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
     const render = () => chart?.setOption(buildOption(readChartTheme()), { notMerge: true });
-    const resizeObserver = new ResizeObserver(() => chart?.resize());
+    // Con el contenedor sin tamaño (oculto, o a mitad de un cambio de disposición) ECharts no puede calcular
+    // la transformación de un mapa y lanza un error: se espera a que vuelva a tener ancho y alto.
+    const resizeObserver = new ResizeObserver(() => {
+      if (element.clientWidth > 0 && element.clientHeight > 0) chart?.resize();
+    });
 
-    import("@/lib/echarts")
-      .then(({ echarts }) => {
-        if (cancelled) return;
-        chart = echarts.init(element, undefined, { renderer: "canvas" });
-        render();
-        resizeObserver.observe(element);
-        darkScheme.addEventListener("change", render);
-      })
-      .catch(() => setFailed(true));
+    (async () => {
+      const { echarts } = await import("@/lib/echarts");
+      await prepare?.();
+      if (cancelled) return;
+      chart = echarts.init(element, undefined, { renderer: "canvas" });
+      if (onItemClick) {
+        chart.on("click", (event) => {
+          if (typeof event.dataIndex === "number") onItemClick(event.dataIndex);
+        });
+      }
+      render();
+      resizeObserver.observe(element);
+      darkScheme.addEventListener("change", render);
+    })().catch(() => setFailed(true));
 
     return () => {
       cancelled = true;
@@ -50,7 +63,7 @@ export function EChart({ buildOption, height, label }: EChartProps) {
       resizeObserver.disconnect();
       chart?.dispose();
     };
-  }, [buildOption]);
+  }, [buildOption, prepare, onItemClick]);
 
   if (failed) {
     return (
